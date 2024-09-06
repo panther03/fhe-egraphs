@@ -7,11 +7,13 @@ define_language! {
         "!" = Not(Id),
         "+" = Or([Id; 2]),
         "^" = Xor([Id; 2]),
+        // used for having multiple outputs
+        ";" = Concat(Vec<Id>),
         Symbol(Symbol),
     }
 }
 
-fn process_rules(rules_string: String )-> Vec<Rewrite<Prop,()>> {
+fn process_rules(rules_string: &str )-> Vec<Rewrite<Prop,()>> {
     let mut rules: Vec<Rewrite<Prop,()>> = Vec::new();
     let mut cnt = 0;
     for line in rules_string.lines() {
@@ -29,13 +31,14 @@ fn main() {
     let rules_path = std::env::args().nth(2).expect("No input rules file given!");
 
     let rules_string = std::fs::read_to_string(rules_path).unwrap();
-    let rules = process_rules(rules_string);
+    let rules = process_rules(&rules_string);
 
-    // While it may look like we are working with numbers,
-    // SymbolLang stores everything as strings.
-    // We can make our own Language later to work with other types.
     let start_string = std::fs::read_to_string(start_expr_path).unwrap();
-    let start = start_string.parse().unwrap();
+    let mut start_lines = start_string.lines();
+    start_lines.next();
+    start_lines.next();
+    let start = String::from(start_lines.next().unwrap());
+    let start = start.parse().unwrap();
 
     // That's it! We can run equality saturation now.
     let runner = Runner::default().with_expr(&start).run(rules.iter());

@@ -27,7 +27,7 @@ enum Commands {
     },
     ConvertEqn {
         #[arg(short, long, value_name = "NODE")]
-        outnode: String
+        outnode: Option<String>
     },
 }
 
@@ -41,7 +41,7 @@ fn main() {
             rules::convert_rules(args.infile, args.outfile, rulecnt.map_or(-1, |r| (r as i32)));
         }
         Commands::ConvertEqn { outnode } => {
-            eqn::convert_eqn(args.infile, args.outfile, &outnode);
+            eqn::convert_eqn(args.infile, args.outfile, outnode.as_deref());
         }
     }
 }
