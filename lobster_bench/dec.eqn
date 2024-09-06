@@ -1,0 +1,366 @@
+INORDER = count0 count1 count2 count3 count4 count5 count6 
+ count7;
+OUTORDER = osel10 osel11 osel12 osel13 osel14 
+ osel15 osel16 osel17 osel18 osel19 osel110 
+ osel111 osel112 osel113 osel114 osel115 
+ osel116 osel117 osel118 osel119 osel120 
+ osel121 osel122 osel123 osel124 osel125 
+ osel126 osel127 osel128 osel129 osel130 
+ osel131 osel132 osel133 osel134 osel135 
+ osel136 osel137 osel138 osel139 osel140 
+ osel141 osel142 osel143 osel144 osel145 
+ osel146 osel147 osel148 osel149 osel150 
+ osel151 osel152 osel153 osel154 osel155 
+ osel156 osel157 osel158 osel159 osel160 
+ osel161 osel162 osel163 osel164 osel165 
+ osel166 osel167 osel168 osel169 osel170 
+ osel171 osel172 osel173 osel174 osel175 
+ osel176 osel177 osel178 osel179 osel180 
+ osel181 osel182 osel183 osel184 osel185 
+ osel186 osel187 osel188 osel189 osel190 
+ osel191 osel192 osel193 osel194 osel195 
+ osel196 osel197 osel198 osel199 osel1100 
+ osel1101 osel1102 osel1103 osel1104 osel1105 
+ osel1106 osel1107 osel1108 osel1109 osel1110 
+ osel1111 osel1112 osel1113 osel1114 osel1115 
+ osel1116 osel1117 osel1118 osel1119 osel1120 
+ osel1121 osel1122 osel1123 osel1124 osel1125 
+ osel1126 osel1127 osel20 osel21 osel22 
+ osel23 osel24 osel25 osel26 osel27 osel28 
+ osel29 osel210 osel211 osel212 osel213 
+ osel214 osel215 osel216 osel217 osel218 
+ osel219 osel220 osel221 osel222 osel223 
+ osel224 osel225 osel226 osel227 osel228 
+ osel229 osel230 osel231 osel232 osel233 
+ osel234 osel235 osel236 osel237 osel238 
+ osel239 osel240 osel241 osel242 osel243 
+ osel244 osel245 osel246 osel247 osel248 
+ osel249 osel250 osel251 osel252 osel253 
+ osel254 osel255 osel256 osel257 osel258 
+ osel259 osel260 osel261 osel262 osel263 
+ osel264 osel265 osel266 osel267 osel268 
+ osel269 osel270 osel271 osel272 osel273 
+ osel274 osel275 osel276 osel277 osel278 
+ osel279 osel280 osel281 osel282 osel283 
+ osel284 osel285 osel286 osel287 osel288 
+ osel289 osel290 osel291 osel292 osel293 
+ osel294 osel295 osel296 osel297 osel298 
+ osel299 osel2100 osel2101 osel2102 osel2103 
+ osel2104 osel2105 osel2106 osel2107 osel2108 
+ osel2109 osel2110 osel2111 osel2112 osel2113 
+ osel2114 osel2115 osel2116 osel2117 osel2118 
+ osel2119 osel2120 osel2121 osel2122 osel2123 
+ osel2124 osel2125 osel2126 osel2127;
+n265 = !count4;
+n266 = !count5;
+n267 = n266 * n265;
+n268 = !count6;
+n269 = count7 * n268;
+n270 = n269 * n267;
+n271 = !count0;
+n272 = !count2;
+n273 = n272 * n271;
+n274 = !count1;
+n275 = !count3;
+n276 = n275 * n274;
+n277 = n276 * n273;
+osel10 = n277 * n270;
+n279 = n272 * count0;
+n280 = n279 * n276;
+osel11 = n280 * n270;
+n282 = n275 * count1;
+n283 = n282 * n273;
+osel12 = n283 * n270;
+n285 = n282 * n279;
+osel13 = n285 * n270;
+n287 = count2 * n271;
+n288 = n287 * n276;
+osel14 = n288 * n270;
+n290 = count2 * count0;
+n291 = n290 * n276;
+osel15 = n291 * n270;
+n293 = n287 * n282;
+osel16 = n293 * n270;
+n295 = n290 * n282;
+osel17 = n295 * n270;
+n297 = count3 * n274;
+n298 = n297 * n273;
+osel18 = n298 * n270;
+n300 = n297 * n279;
+osel19 = n300 * n270;
+n302 = count3 * count1;
+n303 = n302 * n273;
+osel110 = n303 * n270;
+n305 = n302 * n279;
+osel111 = n305 * n270;
+n307 = n297 * n287;
+osel112 = n307 * n270;
+n309 = n297 * n290;
+osel113 = n309 * n270;
+n311 = n302 * n287;
+osel114 = n311 * n270;
+n313 = n302 * n290;
+osel115 = n313 * n270;
+n315 = n266 * count4;
+n316 = n315 * n269;
+osel116 = n316 * n277;
+osel117 = n316 * n280;
+osel118 = n316 * n283;
+osel119 = n316 * n285;
+osel120 = n316 * n288;
+osel121 = n316 * n291;
+osel122 = n316 * n293;
+osel123 = n316 * n295;
+osel124 = n316 * n298;
+osel125 = n316 * n300;
+osel126 = n316 * n303;
+osel127 = n316 * n305;
+osel128 = n316 * n307;
+osel129 = n316 * n309;
+osel130 = n316 * n311;
+osel131 = n316 * n313;
+n333 = count5 * n265;
+n334 = n333 * n269;
+osel132 = n334 * n277;
+osel133 = n334 * n280;
+osel134 = n334 * n283;
+osel135 = n334 * n285;
+osel136 = n334 * n288;
+osel137 = n334 * n291;
+osel138 = n334 * n293;
+osel139 = n334 * n295;
+osel140 = n334 * n298;
+osel141 = n334 * n300;
+osel142 = n334 * n303;
+osel143 = n334 * n305;
+osel144 = n334 * n307;
+osel145 = n334 * n309;
+osel146 = n334 * n311;
+osel147 = n334 * n313;
+n351 = count5 * count4;
+n352 = n351 * n269;
+osel148 = n352 * n277;
+osel149 = n352 * n280;
+osel150 = n352 * n283;
+osel151 = n352 * n285;
+osel152 = n352 * n288;
+osel153 = n352 * n291;
+osel154 = n352 * n293;
+osel155 = n352 * n295;
+osel156 = n352 * n298;
+osel157 = n352 * n300;
+osel158 = n352 * n303;
+osel159 = n352 * n305;
+osel160 = n352 * n307;
+osel161 = n352 * n309;
+osel162 = n352 * n311;
+osel163 = n352 * n313;
+n369 = count7 * count6;
+n370 = n369 * n267;
+osel164 = n370 * n277;
+osel165 = n370 * n280;
+osel166 = n370 * n283;
+osel167 = n370 * n285;
+osel168 = n370 * n288;
+osel169 = n370 * n291;
+osel170 = n370 * n293;
+osel171 = n370 * n295;
+osel172 = n370 * n298;
+osel173 = n370 * n300;
+osel174 = n370 * n303;
+osel175 = n370 * n305;
+osel176 = n370 * n307;
+osel177 = n370 * n309;
+osel178 = n370 * n311;
+osel179 = n370 * n313;
+n387 = n369 * n315;
+osel180 = n387 * n277;
+osel181 = n387 * n280;
+osel182 = n387 * n283;
+osel183 = n387 * n285;
+osel184 = n387 * n288;
+osel185 = n387 * n291;
+osel186 = n387 * n293;
+osel187 = n387 * n295;
+osel188 = n387 * n298;
+osel189 = n387 * n300;
+osel190 = n387 * n303;
+osel191 = n387 * n305;
+osel192 = n387 * n307;
+osel193 = n387 * n309;
+osel194 = n387 * n311;
+osel195 = n387 * n313;
+n404 = n369 * n333;
+osel196 = n404 * n277;
+osel197 = n404 * n280;
+osel198 = n404 * n283;
+osel199 = n404 * n285;
+osel1100 = n404 * n288;
+osel1101 = n404 * n291;
+osel1102 = n404 * n293;
+osel1103 = n404 * n295;
+osel1104 = n404 * n298;
+osel1105 = n404 * n300;
+osel1106 = n404 * n303;
+osel1107 = n404 * n305;
+osel1108 = n404 * n307;
+osel1109 = n404 * n309;
+osel1110 = n404 * n311;
+osel1111 = n404 * n313;
+n421 = n369 * n351;
+osel1112 = n421 * n277;
+osel1113 = n421 * n280;
+osel1114 = n421 * n283;
+osel1115 = n421 * n285;
+osel1116 = n421 * n288;
+osel1117 = n421 * n291;
+osel1118 = n421 * n293;
+osel1119 = n421 * n295;
+osel1120 = n421 * n298;
+osel1121 = n421 * n300;
+osel1122 = n421 * n303;
+osel1123 = n421 * n305;
+osel1124 = n421 * n307;
+osel1125 = n421 * n309;
+osel1126 = n421 * n311;
+osel1127 = n421 * n313;
+n438 = !count7;
+n439 = n438 * n268;
+n440 = n439 * n267;
+osel20 = n440 * n277;
+osel21 = n440 * n280;
+osel22 = n440 * n283;
+osel23 = n440 * n285;
+osel24 = n440 * n288;
+osel25 = n440 * n291;
+osel26 = n440 * n293;
+osel27 = n440 * n295;
+osel28 = n440 * n298;
+osel29 = n440 * n300;
+osel210 = n440 * n303;
+osel211 = n440 * n305;
+osel212 = n440 * n307;
+osel213 = n440 * n309;
+osel214 = n440 * n311;
+osel215 = n440 * n313;
+n457 = n439 * n315;
+osel216 = n457 * n277;
+osel217 = n457 * n280;
+osel218 = n457 * n283;
+osel219 = n457 * n285;
+osel220 = n457 * n288;
+osel221 = n457 * n291;
+osel222 = n457 * n293;
+osel223 = n457 * n295;
+osel224 = n457 * n298;
+osel225 = n457 * n300;
+osel226 = n457 * n303;
+osel227 = n457 * n305;
+osel228 = n457 * n307;
+osel229 = n457 * n309;
+osel230 = n457 * n311;
+osel231 = n457 * n313;
+n474 = n439 * n333;
+osel232 = n474 * n277;
+osel233 = n474 * n280;
+osel234 = n474 * n283;
+osel235 = n474 * n285;
+osel236 = n474 * n288;
+osel237 = n474 * n291;
+osel238 = n474 * n293;
+osel239 = n474 * n295;
+osel240 = n474 * n298;
+osel241 = n474 * n300;
+osel242 = n474 * n303;
+osel243 = n474 * n305;
+osel244 = n474 * n307;
+osel245 = n474 * n309;
+osel246 = n474 * n311;
+osel247 = n474 * n313;
+n491 = n439 * n351;
+osel248 = n491 * n277;
+osel249 = n491 * n280;
+osel250 = n491 * n283;
+osel251 = n491 * n285;
+osel252 = n491 * n288;
+osel253 = n491 * n291;
+osel254 = n491 * n293;
+osel255 = n491 * n295;
+osel256 = n491 * n298;
+osel257 = n491 * n300;
+osel258 = n491 * n303;
+osel259 = n491 * n305;
+osel260 = n491 * n307;
+osel261 = n491 * n309;
+osel262 = n491 * n311;
+osel263 = n491 * n313;
+n508 = n438 * count6;
+n509 = n508 * n267;
+osel264 = n509 * n277;
+osel265 = n509 * n280;
+osel266 = n509 * n283;
+osel267 = n509 * n285;
+osel268 = n509 * n288;
+osel269 = n509 * n291;
+osel270 = n509 * n293;
+osel271 = n509 * n295;
+osel272 = n509 * n298;
+osel273 = n509 * n300;
+osel274 = n509 * n303;
+osel275 = n509 * n305;
+osel276 = n509 * n307;
+osel277 = n509 * n309;
+osel278 = n509 * n311;
+osel279 = n509 * n313;
+n526 = n508 * n315;
+osel280 = n526 * n277;
+osel281 = n526 * n280;
+osel282 = n526 * n283;
+osel283 = n526 * n285;
+osel284 = n526 * n288;
+osel285 = n526 * n291;
+osel286 = n526 * n293;
+osel287 = n526 * n295;
+osel288 = n526 * n298;
+osel289 = n526 * n300;
+osel290 = n526 * n303;
+osel291 = n526 * n305;
+osel292 = n526 * n307;
+osel293 = n526 * n309;
+osel294 = n526 * n311;
+osel295 = n526 * n313;
+n543 = n508 * n333;
+osel296 = n543 * n277;
+osel297 = n543 * n280;
+osel298 = n543 * n283;
+osel299 = n543 * n285;
+osel2100 = n543 * n288;
+osel2101 = n543 * n291;
+osel2102 = n543 * n293;
+osel2103 = n543 * n295;
+osel2104 = n543 * n298;
+osel2105 = n543 * n300;
+osel2106 = n543 * n303;
+osel2107 = n543 * n305;
+osel2108 = n543 * n307;
+osel2109 = n543 * n309;
+osel2110 = n543 * n311;
+osel2111 = n543 * n313;
+n560 = n508 * n351;
+osel2112 = n560 * n277;
+osel2113 = n560 * n280;
+osel2114 = n560 * n283;
+osel2115 = n560 * n285;
+osel2116 = n560 * n288;
+osel2117 = n560 * n291;
+osel2118 = n560 * n293;
+osel2119 = n560 * n295;
+osel2120 = n560 * n298;
+osel2121 = n560 * n300;
+osel2122 = n560 * n303;
+osel2123 = n560 * n305;
+osel2124 = n560 * n307;
+osel2125 = n560 * n309;
+osel2126 = n560 * n311;
+osel2127 = n560 * n313;
+
