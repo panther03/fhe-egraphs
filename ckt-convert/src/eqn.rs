@@ -1,61 +1,22 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::parse::Token;
+use crate::parse::{xag_to_sexpr, Token, Xag};
 use crate::parse;
 
-fn expand_postfix(postfix: &mut Vec<Token>, expr_dict: &HashMap<String, Vec<Token>>) -> String {
-    let mut output_str = String::new();
-    let mut op_cnt_stack: Vec<i32> = Vec::new();
-    let mut op_cnt = -1;
-    while !postfix.is_empty() {
-        let token = postfix.pop().unwrap();
-        match token {
-            Token::And => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 2;
-                output_str.push_str("(*")
+// TODO nasty recursive method but probably not going to fill the e-graph this way for large circuits anyhow
+fn expand_xag(xag: Xag, expr_dict: &HashMap<String, Xag>) -> Xag {
+    let newxag = match *(xag.op) {
+        parse::XagOp::And(n1, n2) => Xag{inv: xag.inv, op: Box::new(parse::XagOp::And(expand_xag(n1, expr_dict), expand_xag(n2, expr_dict)))},
+        parse::XagOp::Xor(n1, n2) => Xag{inv: xag.inv, op: Box::new(parse::XagOp::Xor(expand_xag(n1, expr_dict), expand_xag(n2, expr_dict)))},
+        parse::XagOp::Ident(s) => {
+            match expr_dict.get(&s) {
+                Some(xag) => {expand_xag(xag.clone(), expr_dict)}
+                None => Xag{inv: xag.inv, op: Box::new(parse::XagOp::Ident(s))}
             }
-            Token::Xor => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 2;
-                output_str.push_str("(^")
-            }
-            Token::Or => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 2;
-                output_str.push_str("(+")
-            }
-            Token::Not => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 1;
-                output_str.push_str("(!")
-            }
-            Token::Ident(ident) => {
-                match expr_dict.get(&ident) {
-                    Some(tokens) => {
-                        for token in tokens {
-                            postfix.push(token.clone());
-                        }
-                        continue;
-                    }
-                    None => { 
-                        output_str.push_str(&ident);
-                        op_cnt -= 1;
-                    }
-                }
-                
-            }
-            _ => {}
         }
-        while op_cnt == 0 {
-            output_str.push_str(")");
-            op_cnt = op_cnt_stack.pop().unwrap_or(-1) - 1;
-        }
-        if op_cnt > 0 {
-            output_str.push(' ');
-        }
-    }
-    output_str
+        parse::XagOp::Lit(_) => xag
+    };
+    newxag
 }
 
 fn parse_nodes<'a>(line: &'a str, nodes: &mut Vec<&'a str>) -> bool {
@@ -82,7 +43,7 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     let mut state = ParseState::Init;
     let mut innodes: Vec<&str> = Vec::new();
     let mut outnodes: Vec<&str> = Vec::new();
-    let mut expr_dict: HashMap<String, Vec<Token>> = HashMap::new();
+    let mut expr_dict: HashMap<String, Xag> = HashMap::new();
     for line in lines.lines() {
         if line.is_empty() { continue; }
         state = match state {
@@ -116,8 +77,8 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
                     // surely no one would put inorder after outorder...
                     let mut split = line.split("=");
                     let lhs = String::from(split.next().unwrap().trim());
-                    let postfix = parse::infix_str_to_postfix(split.next().unwrap());
-                    expr_dict.insert(lhs, postfix);
+                    let xag = parse::infix_to_xag(split.next().unwrap());
+                    expr_dict.insert(lhs, xag);
                 }
                 ParseState::Equations
             }
@@ -133,11 +94,12 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     contents.push_str("\n(;");
     for outnode in outnodes {
         // take the last output for the time being
-        let mut outnode_postfix = expr_dict.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
-        let outnode_contents = expand_postfix(
-            &mut outnode_postfix,
+        let outnode_xag = expr_dict.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
+        let outnode_xag = expand_xag(
+            outnode_xag,
             &expr_dict,
         );
+        let outnode_contents = parse::xag_to_sexpr(outnode_xag);
         contents.push(' ');
         contents.push_str(&outnode_contents);
     }

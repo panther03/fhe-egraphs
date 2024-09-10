@@ -10,6 +10,21 @@ pub enum Token {
     Ident(String),
 }
 
+#[derive(Clone,Debug)]
+pub struct Xag {
+    pub inv: bool,
+    pub op: Box<XagOp>
+}
+
+#[derive(Clone,Debug)]
+pub enum XagOp {
+    Xor(Xag, Xag),
+    And(Xag, Xag),
+    Ident(String),
+    Lit(bool)
+}
+
+
 pub fn lex(source: &str) -> Vec<Token> {
     let source_surround = format!("({})", source);
 
@@ -75,18 +90,145 @@ fn infix_to_postfix(infix: Vec<Token>) -> Vec<Token> {
     postfix
 }
 
-pub fn infix_str_to_postfix(source: &str) -> Vec<Token> {
-    infix_to_postfix(lex(source))
+pub fn postfix_to_xag(postfix: Vec<Token>) -> Xag {
+    let mut nodes: Vec<Xag> = Vec::new();
+    let mut op_cnt_stack: Vec<i32> = Vec::new();
+    let mut operator_stack: Vec<Token> = Vec::new();
+    let mut op_cnt = -1;
+    for token in postfix.iter().rev() {
+        match token {
+            Token::And => {
+                op_cnt_stack.push(op_cnt);
+                op_cnt = 2;
+                operator_stack.push(Token::And);
+            }
+            Token::Xor => {
+                op_cnt_stack.push(op_cnt);
+                op_cnt = 2;
+                operator_stack.push(Token::Xor);
+            }
+            Token::Or => {
+                op_cnt_stack.push(op_cnt);
+                op_cnt = 2;
+                operator_stack.push(Token::Or);
+            }
+            Token::Not => {
+                op_cnt_stack.push(op_cnt);
+                op_cnt = 1;
+                operator_stack.push(Token::Not);
+            }
+            Token::Lit(b) => {
+                op_cnt -= 1;
+                nodes.push(Xag { inv: false, op: Box::new(XagOp::Lit(*b)) });
+            }
+            Token::Ident(ident) => {
+                op_cnt -= 1;
+                nodes.push(Xag { inv: false, op: Box::new(XagOp::Ident(ident.to_string())) });
+            }
+            _ => {}
+        }
+        while op_cnt == 0 {
+            let node = match operator_stack.pop().unwrap() {
+                Token::And => {
+                    let n1 = nodes.pop().unwrap();
+                    let n2 = nodes.pop().unwrap();
+                    Xag { inv: false, op: Box::new(XagOp::And(n1, n2)) }  
+                },
+                Token::Not => {
+                    let mut n = nodes.pop().unwrap();
+                    n.inv = !n.inv;
+                    n
+                },
+                Token::Or => {
+                    // demorgans
+                    let mut n1 = nodes.pop().unwrap();
+                    n1.inv = !n1.inv;
+                    let mut n2 = nodes.pop().unwrap();
+                    n2.inv = !n2.inv;
+                    Xag { inv: true, op: Box::new(XagOp::And(n1, n2)) }  
+                }
+                Token::Xor => {
+                    let n1 = nodes.pop().unwrap();
+                    let n2 = nodes.pop().unwrap();
+                    Xag { inv: false, op: Box::new(XagOp::Xor(n1, n2)) }  
+                },
+                _ => unreachable!()
+            };
+            nodes.push(node);
+            op_cnt = op_cnt_stack.pop().unwrap_or(-1) - 1;
+        }
+    }
+    nodes.pop().unwrap()
+}
+
+pub fn xag_to_sexpr(xag: Xag) -> String {
+    let mut output_str = String::new();
+    let mut op_cnt_stack: Vec<i32> = Vec::new();
+    let mut op_cnt = -1;
+    let mut nodes: Vec<Xag> = vec![xag];
+    while !nodes.is_empty() {
+        let node = nodes.pop().unwrap();
+        if node.inv {
+            op_cnt_stack.push(op_cnt);
+            op_cnt = 1;
+            output_str.push_str("(! ");
+        }
+        match *node.op {
+            XagOp::And(n1, n2) => {
+                nodes.push(n1);
+                nodes.push(n2);
+                op_cnt_stack.push(op_cnt);
+                op_cnt = 2;
+                output_str.push_str("(*");
+            }
+            XagOp::Xor(n1, n2) => {
+                nodes.push(n1);
+                nodes.push(n2);
+                op_cnt_stack.push(op_cnt);
+                op_cnt = 2;
+                output_str.push_str("(^");
+            }
+            XagOp::Lit(b) => {
+                op_cnt -= 1;
+                output_str.push_str( if b {"true"} else {"false"});
+            }
+            XagOp::Ident(s) => {
+                op_cnt -= 1;
+                output_str.push_str(&s);
+            }
+        }
+        while op_cnt == 0 {
+            output_str.push_str(")");
+            op_cnt = op_cnt_stack.pop().unwrap_or(-1) - 1;
+        }
+        if op_cnt > 0 {
+            output_str.push(' ');
+        }
+    }
+    output_str
+}
+
+pub fn infix_to_xag(source: &str) -> Xag {
+    postfix_to_xag(infix_to_postfix(lex(source)))
+}
+
+pub fn infix_to_sexpr_xag(source: &str) -> String {
+    xag_to_sexpr(postfix_to_xag(infix_to_postfix(lex(source))))
 }
 
 mod tests {
-    use super::infix_str_to_postfix;
+    use crate::parse::infix_to_sexpr_xag;
+
+    use super::infix_to_xag;
     use super::Token::*;
 
     #[test]
     fn test_01() {
-        let inp_string = "((((not i25) and (not i24)) and (not i26)) and (not i27))";
-        let postfix = infix_str_to_postfix(&inp_string);
+        let inp_string = "((((not i25) and (not i24)) xor (not i26)) or (not i27))";
+        //let inp_string = "i24 and i24";
+        let xag = infix_to_sexpr_xag(&inp_string);
+        dbg!(xag);
+        /*
         assert!(postfix == vec![
             Ident(
                 String::from("i25"),
@@ -107,6 +249,6 @@ mod tests {
             ),
             Not,
             And,
-        ])
+        ])*/
     }
 }

@@ -6,9 +6,11 @@ BENCH ?= i2c
 all: bench
 .PHONY: $(CKTCONV) $(EGGTEST)
 
+cktconv: $(CKTCONV)
 $(CKTCONV):
 	cd ckt-convert && cargo build --release
 
+eggtest: $(EGGTEST)
 $(EGGTEST):
 	cd eggtest && cargo build --release
 
