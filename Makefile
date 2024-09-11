@@ -16,6 +16,6 @@ $(EGGTEST):
 
 bench: $(CKTCONV) $(EGGTEST)
 	mkdir -p out/
-	$(CKTCONV) lobster_bench/$(BENCH).eqn out/$(BENCH).sexpr convert-eqn
-	$(CKTCONV) lobster_rules/leave-$(BENCH) out/$(BENCH).rules convert-rules
+	$(CKTCONV) convert-eqn lobster_bench/$(BENCH).eqn out/$(BENCH).sexpr
+	$(CKTCONV) convert-rules lobster_rules/leave-$(BENCH) out/$(BENCH).rules
 	$(EGGTEST) out/$(BENCH).sexpr out/$(BENCH).rules 

@@ -4,6 +4,7 @@ pub enum Token {
     And,
     Xor,
     Or,
+    Concat,
     LParen,
     RParen,
     Lit(bool),
@@ -18,6 +19,7 @@ pub struct Xag {
 
 #[derive(Clone,Debug)]
 pub enum XagOp {
+    Concat(Vec<Xag>),
     Xor(Xag, Xag),
     And(Xag, Xag),
     Ident(String),
@@ -41,6 +43,7 @@ pub fn lex(source: &str) -> Vec<Token> {
             '!' => { ctr = 1; new_tokens.push(Token::LParen); new_tokens.push(Token::Not) },
             '*' => { new_tokens.push(Token::And) },
             '+' => { new_tokens.push(Token::Or) },
+            '$' => { new_tokens.push(Token::Concat)},
             ' '|';' => {},
             _ => { curr_token.push(char); flush = false;}
         }
@@ -90,73 +93,47 @@ fn infix_to_postfix(infix: Vec<Token>) -> Vec<Token> {
     postfix
 }
 
-pub fn postfix_to_xag(postfix: Vec<Token>) -> Xag {
+pub fn postfix_to_xag(postfix: &Vec<Token>) -> Xag {
     let mut nodes: Vec<Xag> = Vec::new();
-    let mut op_cnt_stack: Vec<i32> = Vec::new();
-    let mut operator_stack: Vec<Token> = Vec::new();
-    let mut op_cnt = -1;
-    for token in postfix.iter().rev() {
-        match token {
+    for token in postfix.iter() {
+        let new_node = match token {
             Token::And => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 2;
-                operator_stack.push(Token::And);
+                let n1 = nodes.pop().unwrap();
+                let n2 = nodes.pop().unwrap();
+                Xag { inv: false, op: Box::new(XagOp::And(n1, n2)) }
             }
             Token::Xor => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 2;
-                operator_stack.push(Token::Xor);
+                let n1 = nodes.pop().unwrap();
+                let n2 = nodes.pop().unwrap();
+                Xag { inv: false, op: Box::new(XagOp::Xor(n1, n2)) }  
             }
             Token::Or => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 2;
-                operator_stack.push(Token::Or);
+                // demorgans
+                let mut n1 = nodes.pop().unwrap();
+                n1.inv = !n1.inv;
+                let mut n2 = nodes.pop().unwrap();
+                n2.inv = !n2.inv;
+                Xag { inv: true, op: Box::new(XagOp::And(n1, n2)) }  
+            }
+            Token::Concat => {
+                let mut new_nodes: Vec<Xag> = Vec::new();
+                new_nodes.append(&mut nodes);
+                Xag { inv: false, op: Box::new(XagOp::Concat(new_nodes))}
             }
             Token::Not => {
-                op_cnt_stack.push(op_cnt);
-                op_cnt = 1;
-                operator_stack.push(Token::Not);
+                let mut n = nodes.pop().unwrap();
+                n.inv = !n.inv;
+                n
             }
             Token::Lit(b) => {
-                op_cnt -= 1;
-                nodes.push(Xag { inv: false, op: Box::new(XagOp::Lit(*b)) });
+                Xag { inv: false, op: Box::new(XagOp::Lit(*b)) }
             }
             Token::Ident(ident) => {
-                op_cnt -= 1;
-                nodes.push(Xag { inv: false, op: Box::new(XagOp::Ident(ident.to_string())) });
+                Xag { inv: false, op: Box::new(XagOp::Ident(ident.to_string())) }
             }
-            _ => {}
-        }
-        while op_cnt == 0 {
-            let node = match operator_stack.pop().unwrap() {
-                Token::And => {
-                    let n1 = nodes.pop().unwrap();
-                    let n2 = nodes.pop().unwrap();
-                    Xag { inv: false, op: Box::new(XagOp::And(n1, n2)) }  
-                },
-                Token::Not => {
-                    let mut n = nodes.pop().unwrap();
-                    n.inv = !n.inv;
-                    n
-                },
-                Token::Or => {
-                    // demorgans
-                    let mut n1 = nodes.pop().unwrap();
-                    n1.inv = !n1.inv;
-                    let mut n2 = nodes.pop().unwrap();
-                    n2.inv = !n2.inv;
-                    Xag { inv: true, op: Box::new(XagOp::And(n1, n2)) }  
-                }
-                Token::Xor => {
-                    let n1 = nodes.pop().unwrap();
-                    let n2 = nodes.pop().unwrap();
-                    Xag { inv: false, op: Box::new(XagOp::Xor(n1, n2)) }  
-                },
-                _ => unreachable!()
-            };
-            nodes.push(node);
-            op_cnt = op_cnt_stack.pop().unwrap_or(-1) - 1;
-        }
+            _ => { panic!("Postfix should not have parentheses!"); }
+        };
+        nodes.push(new_node);
     }
     nodes.pop().unwrap()
 }
@@ -188,6 +165,13 @@ pub fn xag_to_sexpr(xag: Xag) -> String {
                 op_cnt = 2;
                 output_str.push_str("(^");
             }
+            XagOp::Concat(mut ns) => {
+                let ns_len = ns.len();
+                nodes.append(&mut ns);
+                op_cnt_stack.push(op_cnt);
+                op_cnt = ns_len as i32;
+                output_str.push_str("($");
+            }
             XagOp::Lit(b) => {
                 op_cnt -= 1;
                 output_str.push_str( if b {"true"} else {"false"});
@@ -209,11 +193,11 @@ pub fn xag_to_sexpr(xag: Xag) -> String {
 }
 
 pub fn infix_to_xag(source: &str) -> Xag {
-    postfix_to_xag(infix_to_postfix(lex(source)))
+    postfix_to_xag(&infix_to_postfix(lex(source)))
 }
 
 pub fn infix_to_sexpr_xag(source: &str) -> String {
-    xag_to_sexpr(postfix_to_xag(infix_to_postfix(lex(source))))
+    xag_to_sexpr(postfix_to_xag(&infix_to_postfix(lex(source))))
 }
 
 mod tests {

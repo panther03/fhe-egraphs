@@ -7,7 +7,7 @@ define_language! {
         "!" = Not(Id),
         "^" = Xor([Id; 2]),
         // used for having multiple outputs
-        ";" = Concat(Vec<Id>),
+        "$" = Concat(Vec<Id>),
         Symbol(Symbol),
     }
 }
@@ -74,7 +74,7 @@ fn main() {
 
     // Extractors can take a user-defined cost function,
     // we'll use the egg-provided AstSize for now
-    let extractor = Extractor::new(&runner.egraph, MultDepth);
+    let extractor = Extractor::new(&runner.egraph, MultComplexity);
 
     // We want to extract the best expression represented in the
     // same e-class as our initial expression, not from the whole e-graph.
@@ -85,7 +85,7 @@ fn main() {
 
     // Extractors can take a user-defined cost function,
     // we'll use the egg-provided AstSize for now
-    let extractor = Extractor::new(&runner.egraph, MultDepth);
+    let extractor = Extractor::new(&runner.egraph, MultComplexity);
     let (default_cost, _) = extractor.find_best(runner.roots[0]);
 
 

@@ -14,7 +14,7 @@ fn expand_xag(xag: Xag, expr_dict: &HashMap<String, Xag>) -> Xag {
                 None => Xag{inv: xag.inv, op: Box::new(parse::XagOp::Ident(s))}
             }
         }
-        parse::XagOp::Lit(_) => xag
+        _ => xag
     };
     newxag
 }
@@ -91,7 +91,7 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     let mut contents = innodes.join(" ");
     contents.push('\n');
     contents.push_str(&outnodes.join(" "));
-    contents.push_str("\n(;");
+    contents.push_str("\n($");
     for outnode in outnodes {
         // take the last output for the time being
         let outnode_xag = expr_dict.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
