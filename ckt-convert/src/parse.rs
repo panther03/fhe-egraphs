@@ -138,7 +138,7 @@ pub fn postfix_to_xag(postfix: &Vec<Token>) -> Xag {
     nodes.pop().unwrap()
 }
 
-pub fn xag_to_sexpr(xag: Xag) -> String {
+pub fn xag_to_sexpr(xag: Xag, question_identifiers: bool) -> String {
     let mut output_str = String::new();
     let mut op_cnt_stack: Vec<i32> = Vec::new();
     let mut op_cnt = -1;
@@ -178,6 +178,7 @@ pub fn xag_to_sexpr(xag: Xag) -> String {
             }
             XagOp::Ident(s) => {
                 op_cnt -= 1;
+                if question_identifiers {output_str.push('?');}
                 output_str.push_str(&s);
             }
         }
@@ -196,8 +197,8 @@ pub fn infix_to_xag(source: &str) -> Xag {
     postfix_to_xag(&infix_to_postfix(lex(source)))
 }
 
-pub fn infix_to_sexpr_xag(source: &str) -> String {
-    xag_to_sexpr(postfix_to_xag(&infix_to_postfix(lex(source))))
+pub fn infix_to_sexpr_xag(source: &str, question_identifiers: bool) -> String {
+    xag_to_sexpr(postfix_to_xag(&infix_to_postfix(lex(source))), question_identifiers)
 }
 
 mod tests {
@@ -210,7 +211,7 @@ mod tests {
     fn test_01() {
         let inp_string = "((((not i25) and (not i24)) xor (not i26)) or (not i27))";
         //let inp_string = "i24 and i24";
-        let xag = infix_to_sexpr_xag(&inp_string);
+        let xag = infix_to_sexpr_xag(&inp_string, false);
         dbg!(xag);
         /*
         assert!(postfix == vec![

@@ -130,7 +130,7 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
             outnode_xag,
             &expr_dict,
         );
-        let outnode_contents = parse::xag_to_sexpr(outnode_xag);
+        let outnode_contents = parse::xag_to_sexpr(outnode_xag, false);
         contents.push(' ');
         contents.push_str(&outnode_contents);
     }

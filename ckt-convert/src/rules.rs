@@ -70,10 +70,10 @@ pub fn convert_rules(inrules: PathBuf, outrules: PathBuf, rulecnt: i32) {
     for line in lines.lines() {
         if line.starts_with("old bexp") {
             let expr_string = line.split(":").nth(1).unwrap();
-            rule.lhs = Some(parse::infix_to_sexpr_xag(expr_string));
+            rule.lhs = Some(parse::infix_to_sexpr_xag(expr_string, true));
         } else if line.starts_with("new bexp") {
             let expr_string = line.split(":").nth(1).unwrap();
-            rule.rhs = Some(parse::infix_to_sexpr_xag(expr_string));
+            rule.rhs = Some(parse::infix_to_sexpr_xag(expr_string, true));
         }
 
         if rule.lhs.is_some() && rule.rhs.is_some()

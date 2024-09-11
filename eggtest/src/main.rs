@@ -13,14 +13,18 @@ define_language! {
 }
 
 fn process_rules(rules_string: &str )-> Vec<Rewrite<Prop,()>> {
-    let mut rules: Vec<Rewrite<Prop,()>> = Vec::new();
-    let mut cnt = 0;
+    let mut rules: Vec<Rewrite<Prop,()>> = vec![
+        // Basic commutativity rules, which Lobster assumes
+        rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
+        rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+    ];
+    let mut cnt = 2;
     for line in rules_string.lines() {
         let mut split = line.split(";");
         let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
         let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        cnt += 1;
         rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
+        cnt += 1;
     }
     rules
 }
@@ -74,7 +78,7 @@ fn main() {
 
     // Extractors can take a user-defined cost function,
     // we'll use the egg-provided AstSize for now
-    let extractor = Extractor::new(&runner.egraph, MultComplexity);
+    let extractor = Extractor::new(&runner.egraph, MultDepth);
 
     // We want to extract the best expression represented in the
     // same e-class as our initial expression, not from the whole e-graph.
@@ -85,7 +89,7 @@ fn main() {
 
     // Extractors can take a user-defined cost function,
     // we'll use the egg-provided AstSize for now
-    let extractor = Extractor::new(&runner.egraph, MultComplexity);
+    let extractor = Extractor::new(&runner.egraph, MultDepth);
     let (default_cost, _) = extractor.find_best(runner.roots[0]);
 
 
