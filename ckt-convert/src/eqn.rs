@@ -1,7 +1,38 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::parse::{xag_to_sexpr, Token, Xag};
+use crate::parse::{xag_to_sexpr, Token, Xag, XagOp};
 use crate::parse;
+
+fn optimize_trivial_xor(xag: Xag) -> Xag {
+    let newxag = match xag.op.as_ref() {
+        parse::XagOp::And(n1, n2) => {
+            let (ln1,ln2) = match n1.op.as_ref() {
+                parse::XagOp::And(ln1, ln2) => {
+                    (Some(ln1),Some(ln2))
+                },
+                _ => (None,None) 
+            };
+            let (rn1,rn2) = match n2.op.as_ref() {
+                parse::XagOp::And(rn1, rn2) => {
+                    (Some(rn1),Some(rn2))
+                },
+                _ => (None,None) 
+            };
+            match (ln1,ln2,rn1,rn2) {
+                (Some(ln1),Some(ln2),Some(rn1),Some(rn2)) => {
+                    if n1.inv && n2.inv && ln1.inv != rn1.inv && ln2.inv != rn2.inv && ln1.op == rn1.op && ln2.op == rn2.op {
+                        Xag {inv: !xag.inv, op: Box::new(parse::XagOp::Xor(ln1.clone(),rn2.clone()))}
+                    } else {
+                        xag
+                    }
+                },
+                _ => xag
+            }
+        }
+        _ => xag
+    };
+    newxag
+}
 
 // TODO nasty recursive method but probably not going to fill the e-graph this way for large circuits anyhow
 fn expand_xag(xag: Xag, expr_dict: &HashMap<String, Xag>) -> Xag {
@@ -77,7 +108,7 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
                     // surely no one would put inorder after outorder...
                     let mut split = line.split("=");
                     let lhs = String::from(split.next().unwrap().trim());
-                    let xag = parse::infix_to_xag(split.next().unwrap());
+                    let xag = optimize_trivial_xor(parse::infix_to_xag(split.next().unwrap()));
                     expr_dict.insert(lhs, xag);
                 }
                 ParseState::Equations

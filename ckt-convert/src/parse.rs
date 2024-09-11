@@ -11,13 +11,13 @@ pub enum Token {
     Ident(String),
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Xag {
     pub inv: bool,
     pub op: Box<XagOp>
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum XagOp {
     Concat(Vec<Xag>),
     Xor(Xag, Xag),
