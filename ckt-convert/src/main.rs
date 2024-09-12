@@ -34,12 +34,17 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
+    ConvertSexpr {
+        /// Input file to operate on
+        infile: PathBuf,
+        /// Output file
+        outfile: PathBuf,
+    },
     SexprStats {
         /// Input file to operate on
         infile: PathBuf,
     }
 }
-
 
 
 fn main() {
@@ -59,15 +64,12 @@ fn main() {
             sexpr_lines.next();
             sexpr_lines.next();
             let sexpr = parse::lex(sexpr_lines.next().unwrap());
-            // filter out lparen and rparen from sexpr while keeping the type the same
-            let mut postfix: Vec<Token> = sexpr.into_iter().filter(|t| match t {
-                Token::LParen | Token::RParen => false,
-                _ => true,
-            }).collect();
-            postfix.reverse();
-            let xag = parse::postfix_to_xag(&postfix);
+            let xag = parse::sexpr_to_xag(sexpr);
             println!("MC: {}", stats::mult_complexity(&xag));
             println!("MD: {}", stats::mult_depth(&xag));
-        }   
+        },
+        Commands::ConvertSexpr { infile, outfile } => {
+            eqn::convert_sexpr(infile, outfile);
+        }
     }
 }

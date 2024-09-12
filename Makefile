@@ -1,5 +1,6 @@
 CKTCONV = ckt-convert/target/release/ckt-convert
 EGGTEST = eggtest/target/release/eggtest
+CKTVERIFY = ckt-verify/build/ckt-verify
 
 BENCH ?= i2c
 
@@ -14,8 +15,16 @@ eggtest: $(EGGTEST)
 $(EGGTEST):
 	cd eggtest && cargo build --release
 
+cktverify: $(CKTVERIFY)
+$(CKTVERIFY):
+	cd ckt-verify && cmake -B build && cmake --build build/
+
 bench: $(CKTCONV) $(EGGTEST)
 	mkdir -p out/
 	$(CKTCONV) convert-eqn lobster_bench/$(BENCH).eqn out/$(BENCH).sexpr
 	$(CKTCONV) convert-rules lobster_rules/leave-$(BENCH) out/$(BENCH).rules
 	$(EGGTEST) out/$(BENCH).sexpr out/$(BENCH).rules 
+
+verify: bench $(VERIFIER)
+	$(CKTCONV) convert-sexpr out/$(BENCH).sexpr out/$(BENCH).eqn
+	

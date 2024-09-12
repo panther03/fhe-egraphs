@@ -43,6 +43,7 @@ pub fn lex(source: &str) -> Vec<Token> {
             '!' => { ctr = 1; new_tokens.push(Token::LParen); new_tokens.push(Token::Not) },
             '*' => { new_tokens.push(Token::And) },
             '+' => { new_tokens.push(Token::Or) },
+            '^' => { new_tokens.push(Token::Xor) },
             '$' => { new_tokens.push(Token::Concat)},
             ' '|';' => {},
             _ => { curr_token.push(char); flush = false;}
@@ -118,6 +119,7 @@ pub fn postfix_to_xag(postfix: &Vec<Token>) -> Xag {
             Token::Concat => {
                 let mut new_nodes: Vec<Xag> = Vec::new();
                 new_nodes.append(&mut nodes);
+                new_nodes.reverse();
                 Xag { inv: false, op: Box::new(XagOp::Concat(new_nodes))}
             }
             Token::Not => {
@@ -192,6 +194,18 @@ pub fn xag_to_sexpr(xag: Xag, question_identifiers: bool) -> String {
     }
     output_str
 }
+
+pub fn sexpr_to_xag(sexpr: Vec<Token>) -> Xag {
+    // filter out lparen and rparen from sexpr while keeping the type the same
+    let mut postfix: Vec<Token> = sexpr.into_iter().filter(|t| match t {
+        Token::LParen | Token::RParen => false,
+        _ => true,
+    }).collect();
+    postfix.reverse();
+    let xag = postfix_to_xag(&postfix);
+    xag
+}
+
 
 pub fn infix_to_xag(source: &str) -> Xag {
     postfix_to_xag(&infix_to_postfix(lex(source)))
