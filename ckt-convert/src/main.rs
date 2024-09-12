@@ -65,8 +65,8 @@ fn main() {
             sexpr_lines.next();
             let sexpr = parse::lex(sexpr_lines.next().unwrap());
             let xag = parse::sexpr_to_xag(sexpr);
-            println!("MC: {}", stats::mult_complexity(&xag));
-            println!("MD: {}", stats::mult_depth(&xag));
+            print!("{},{},", stats::mult_complexity(&xag), stats::mult_depth(&xag));
+            //println!("MD: {}", stats::mult_depth(&xag));
         },
         Commands::ConvertSexpr { infile, outfile } => {
             eqn::convert_sexpr(infile, outfile);
