@@ -95,72 +95,66 @@ fn fresh_node(cnt: u32) -> String {
     format!("n{}", cnt)
 }
 
-fn xag_to_eqn(xag: Xag, outnode: &str, nodecnt: u32, eqnout: &mut String) -> u32 {
-    match *xag.op {
-        parse::XagOp::And(n1, n2) => {
-            let n1_inv = n1.inv;
-            let n2_inv = n2.inv;
-
-            let new_node = fresh_node(nodecnt);
-            let (n1_leaf, nodecnt) = match is_xag_leaf(&n1) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n1, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            let new_node = fresh_node(nodecnt);
-            let (n2_leaf, nodecnt) = match is_xag_leaf(&n2) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n2, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            eqnout.push_str(outnode);
-            eqnout.push_str(" = ");
-            if n1_inv {
-                eqnout.push('!');
+fn xag_outnode(xag: Xag, nodecnt: &mut u32, dedup: &mut HashMap<(String,String),u32>, eqnout: &mut String) -> String {
+    match is_xag_leaf(&xag) {
+        Some(s) => String::from(s),
+        None => {
+            let new_node = fresh_node(*nodecnt);
+            let returned_cnt = xag_to_eqn(xag, &new_node, *nodecnt, dedup, eqnout);
+            if returned_cnt > *nodecnt {
+                *nodecnt = returned_cnt;
+                new_node
+            } else {
+                format!("n{}", returned_cnt)
             }
-            eqnout.push_str(n1_leaf);
-            eqnout.push_str(" * ");
-            if n2_inv {
-                eqnout.push('!');
-            }
-            eqnout.push_str(n2_leaf);
-            eqnout.push_str(";\n");
-            nodecnt
         }
+    }
+}
+
+fn xag_to_eqn(xag: Xag, outnode: &str, nodecnt: u32, dedup: &mut HashMap<(String,String),u32>, eqnout: &mut String) -> u32 {
+    let xagop = *xag.op;
+    let op: Token = match &xagop {
+        &parse::XagOp::And(_,_) => Token::And,
+        &parse::XagOp::Xor(_,_) => Token::Xor,
+        _ => Token::LParen // junk
+    };
+    match xagop {
+        parse::XagOp::And(n1, n2) | 
         parse::XagOp::Xor(n1, n2) => {
             let n1_inv = n1.inv;
             let n2_inv = n2.inv;
 
-            let new_node = fresh_node(nodecnt);
-            let (n1_leaf, nodecnt) = match is_xag_leaf(&n1) {
-                Some(s) => (s, nodecnt),
+            let mut nodecnt = nodecnt + 1; // including this node
+            let n1_out = xag_outnode(n1, &mut nodecnt, dedup, eqnout);
+            let n2_out = xag_outnode(n2, &mut nodecnt, dedup, eqnout);
+            let nodes = (n1_out, n2_out);
+
+            // lookup n1_out, n2_out in dedup without moving the value
+            match dedup.get(&nodes) {
+                Some(n) => *n,
                 None => {
-                    (new_node.as_str(), xag_to_eqn(n1, &new_node, nodecnt + 1, eqnout))
+                    eqnout.push_str(outnode);
+                    eqnout.push_str(" = ");
+                    if n1_inv {
+                        eqnout.push('!');
+                    }
+                    eqnout.push_str(nodes.0.as_str());
+                    match op {
+                        Token::And => eqnout.push_str(" * "),
+                        Token::Xor => eqnout.push_str(" ^ "),
+                        _ => unreachable!()
+                    };
+                    
+                    if n2_inv {
+                        eqnout.push('!');
+                    }
+                    eqnout.push_str(nodes.1.as_str());
+                    eqnout.push_str(";\n");
+                    dedup.insert(nodes, nodecnt - 1);
+                    nodecnt
                 }
-            };
-            let new_node = fresh_node(nodecnt);
-            let (n2_leaf, nodecnt) = match is_xag_leaf(&n2) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n2, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            eqnout.push_str(outnode);
-            eqnout.push_str(" = ");
-            if n1_inv {
-                eqnout.push('!');
             }
-            eqnout.push_str(n1_leaf);
-            eqnout.push_str(" ^ ");
-            if n2_inv {
-                eqnout.push('!');
-            }
-            eqnout.push_str(n2_leaf);
-            eqnout.push_str(";\n");
-            nodecnt
-        }
+        },
         XagOp::Lit(b) => {
             let the_lit = if b ^ xag.inv { "true" } else { "false" };
             eqnout.push_str(format!("{} = {};\n", outnode, the_lit).as_str());
@@ -268,6 +262,7 @@ pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
     let mut nodecnt = 0;
     let outnodes = outnodes.split(" ");
     let sexpr = parse::lex(sexpr_lines.next().unwrap());
+    let mut dedup = HashMap::new();
     let xag = parse::sexpr_to_xag(sexpr);
     if let XagOp::Concat(xs) = *xag.op {
         let _ = xs
@@ -282,7 +277,7 @@ pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
                     on
                 };
                 let x_inv = x.inv;
-                nodecnt = xag_to_eqn(x, on2, nodecnt, &mut eqn);
+                nodecnt = xag_to_eqn(x, on2, nodecnt, &mut dedup, &mut eqn);
                 if x_inv {
                     eqn.push_str(format!("{} = !{};\n", on, on2).as_str());
                 }

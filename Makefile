@@ -40,6 +40,6 @@ bench:
 	fi
 
 verify: bench
-	@$(CKTCONV) convert-sexpr out/$(BENCH)-opt.sexpr out/$(BENCH)-opt.eqn
+	$(CKTCONV) convert-sexpr out/$(BENCH)-opt.sexpr out/$(BENCH)-opt.eqn
 	@./run_abc.sh $(BENCH)
 	
