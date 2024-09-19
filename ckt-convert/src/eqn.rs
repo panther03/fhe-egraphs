@@ -91,27 +91,24 @@ fn is_xag_leaf(xag: &Xag) -> Option<&str> {
     }
 }
 
-fn fresh_node(cnt: u32) -> String {
-    format!("n{}", cnt)
+fn fresh_node(cnt: &mut u32) -> String {
+    *cnt += 1;
+    format!("n{}", *cnt-1)
 }
 
-fn xag_outnode(xag: Xag, nodecnt: &mut u32, dedup: &mut HashMap<(String,String),u32>, eqnout: &mut String) -> String {
+fn xag_outnode(xag: Xag, nodecnt: &mut u32, dedup: &mut HashMap<(String, bool, String, bool),u32>, eqnout: &mut String) -> String {
     match is_xag_leaf(&xag) {
         Some(s) => String::from(s),
         None => {
-            let new_node = fresh_node(*nodecnt);
-            let returned_cnt = xag_to_eqn(xag, &new_node, *nodecnt, dedup, eqnout);
-            if returned_cnt > *nodecnt {
-                *nodecnt = returned_cnt;
-                new_node
-            } else {
-                format!("n{}", returned_cnt)
-            }
+            let returned_cnt = xag_to_eqn(xag, *nodecnt, dedup, eqnout);
+            // we should always either make progress or refer to an existing part of the tree
+            assert!(returned_cnt != *nodecnt);
+            format!("n{}", if returned_cnt > *nodecnt { *nodecnt = returned_cnt; returned_cnt-1 } else { returned_cnt })
         }
     }
 }
 
-fn xag_to_eqn(xag: Xag, outnode: &str, nodecnt: u32, dedup: &mut HashMap<(String,String),u32>, eqnout: &mut String) -> u32 {
+fn xag_to_eqn(xag: Xag, nodecnt: u32, dedup: &mut HashMap<(String, bool, String, bool),u32>, eqnout: &mut String) -> u32 {
     let xagop = *xag.op;
     let op: Token = match &xagop {
         &parse::XagOp::And(_,_) => Token::And,
@@ -124,16 +121,22 @@ fn xag_to_eqn(xag: Xag, outnode: &str, nodecnt: u32, dedup: &mut HashMap<(String
             let n1_inv = n1.inv;
             let n2_inv = n2.inv;
 
-            let mut nodecnt = nodecnt + 1; // including this node
+            let mut nodecnt = nodecnt; // including this node
             let n1_out = xag_outnode(n1, &mut nodecnt, dedup, eqnout);
             let n2_out = xag_outnode(n2, &mut nodecnt, dedup, eqnout);
-            let nodes = (n1_out, n2_out);
+            let nodes = (n1_out, n1_inv, n2_out, n2_inv);
 
             // lookup n1_out, n2_out in dedup without moving the value
             match dedup.get(&nodes) {
-                Some(n) => *n,
+                Some(n) => { 
+                    if (nodecnt == 720) {
+                        dbg!(n);
+                    }
+                    *n
+                },
                 None => {
-                    eqnout.push_str(outnode);
+                    let outnode = fresh_node(&mut nodecnt);
+                    eqnout.push_str(outnode.as_str());
                     eqnout.push_str(" = ");
                     if n1_inv {
                         eqnout.push('!');
@@ -148,20 +151,24 @@ fn xag_to_eqn(xag: Xag, outnode: &str, nodecnt: u32, dedup: &mut HashMap<(String
                     if n2_inv {
                         eqnout.push('!');
                     }
-                    eqnout.push_str(nodes.1.as_str());
+                    eqnout.push_str(nodes.2.as_str());
                     eqnout.push_str(";\n");
-                    dedup.insert(nodes, nodecnt - 1);
+                    dedup.insert(nodes, nodecnt - 1); // nodecnt - 1 = last node we added, which is this one
                     nodecnt
                 }
             }
         },
         XagOp::Lit(b) => {
             let the_lit = if b ^ xag.inv { "true" } else { "false" };
+            let mut nodecnt = nodecnt;
+            let outnode = fresh_node(&mut nodecnt);
             eqnout.push_str(format!("{} = {};\n", outnode, the_lit).as_str());
             nodecnt
         },
         XagOp::Ident(s) => {
-            eqnout.push_str(outnode);
+            let mut nodecnt = nodecnt;
+            let outnode = fresh_node(&mut nodecnt);
+            eqnout.push_str(&outnode);
             eqnout.push_str(" = ");
             if xag.inv { eqnout.push('!'); }
             eqnout.push_str(&s);
@@ -269,18 +276,13 @@ pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
         .into_iter()
         .zip(outnodes)
         .for_each(|(x, on)| {
-                let new_node = fresh_node(nodecnt);
-                let on2 = if x.inv {
-                    nodecnt += 1;
-                    new_node.as_str()
-                } else {
-                    on
-                };
-                let x_inv = x.inv;
-                nodecnt = xag_to_eqn(x, on2, nodecnt, &mut dedup, &mut eqn);
-                if x_inv {
-                    eqn.push_str(format!("{} = !{};\n", on, on2).as_str());
-                }
+            let x_inv = x.inv;
+            nodecnt = xag_to_eqn(x, nodecnt, &mut dedup, &mut eqn);
+            if x_inv {
+                eqn.push_str(format!("{} = !n{};\n", on, nodecnt-1).as_str());
+            } else {
+                eqn.push_str(format!("{} = n{};\n", on, nodecnt-1).as_str());
+            }
         });
     }
     std::fs::write(outeqn, eqn).unwrap();
