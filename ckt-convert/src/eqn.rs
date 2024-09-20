@@ -136,41 +136,20 @@ fn xag_to_eqn(xag: Xag, nodecnt: u32, dedup: &mut HashMap<NodeLookup,u32>, eqnou
                     let outnode = fresh_node(&mut nodecnt);
                     eqnout.push_str(outnode.as_str());
                     eqnout.push_str(" = ");
-                    if is_xor {
-                        /*if n1_inv {
-                            eqnout.push('!');
-                        }
-                        eqnout.push_str(nodes.0.as_str());
-                        eqnout.push_str(" ^ ");
-                        if n2_inv {
-                            eqnout.push('!');
-                        }
-                        eqnout.push_str(nodes.2.as_str());
-                        eqnout.push_str(";\n");*/
-                        eqnout.push_str(
-                            format!("({}{} * {}{}) + ({}{} * {}{});\n",
-                            if n1_inv {'!'} else {' '},
-                            nodes.0.as_str(),
-                            if !n2_inv {'!'} else {' '},
-                            nodes.2.as_str(),
-                            if !n1_inv {'!'} else {' '},
-                            nodes.0.as_str(),
-                            if n2_inv {'!'} else {' '},
-                            nodes.2.as_str()
-                            ).as_str()
-                        );
-                    } else {
-                        if n1_inv {
-                            eqnout.push('!');
-                        }
-                        eqnout.push_str(nodes.0.as_str());
-                        eqnout.push_str(" * ");
-                        if n2_inv {
-                            eqnout.push('!');
-                        }
-                        eqnout.push_str(nodes.2.as_str());
-                        eqnout.push_str(";\n");
+                    if n1_inv {
+                        eqnout.push('!');
                     }
+                    eqnout.push_str(nodes.0.as_str());
+                    if is_xor {
+                        eqnout.push_str(" ^ ");
+                    } else {
+                        eqnout.push_str(" * ");
+                    }
+                    if n2_inv {
+                        eqnout.push('!');
+                    }
+                    eqnout.push_str(nodes.2.as_str());
+                    eqnout.push_str(";\n");
                     
                     dedup.insert(nodes, nodecnt - 1); // nodecnt - 1 = last node we added, which is this one
                     nodecnt
