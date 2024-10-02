@@ -11,4 +11,6 @@ BENCH_FOLDER=$1
 
 CASES=$(for c in $(ls "${BENCH_FOLDER}"/); do echo "BENCH=$(basename $c .eqn)"; done)
 
-parallel make stats verify OPTDIR=$BENCH_FOLDER ::: $CASES
+for THECASE in $CASES;
+    do make eval OPTDIR=$BENCH_FOLDER $THECASE;
+done

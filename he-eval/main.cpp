@@ -101,7 +101,7 @@ class CircuitEvaluator {
                         memory.insert(make_pair(net, leftPair));
                     }
                 }
-                cout << "Evaluated " << net << endl;                
+                if (debug) cout << "Evaluated " << net << endl;                
             }
         }
 
@@ -193,6 +193,7 @@ long find_md(vector<tuple<string, Gate*>> &eqnlist) {
 void help(const char* p_name) {
     cout << "Usage: " << p_name << " [OPTION]... [FILE] [DEPTH]" << endl << endl;
     cout << "   -d\t\t\tEnable debugging" << endl;
+    cout << "   -q\t\t\tOnly print final duration" << endl;
 }
 
 int main( const int argc, const char **argv )
@@ -212,11 +213,13 @@ int main( const int argc, const char **argv )
     const char* args[arglen];
     int argcnt = 0;
     bool debug = false;
+    bool quiet = false;
     for (int i = 1; i < argc; i++) {
         switch (*(argv[i])) {
             case '-': {
                 switch ((argv[i])[1]) {
                     case 'd': {debug = true; break;}
+                    case 'q': {quiet = true; break;}
                     default: help(argv[0]); break;
                 }
                 break;
@@ -240,8 +243,8 @@ int main( const int argc, const char **argv )
     vector<string> outputlist = driver.outputlist;
     vector<tuple<string, Gate*>> eqnlist = driver.eqnlist;
 
-    long depth = find_md(eqnlist); // atoi(args[1]);
-    cout << "Depth = " << depth << endl;
+    long depth = 13; // atoi(args[1]);
+    if (!quiet) cout << "Depth = " << depth << endl;
 
     //////////////////////////
     // Setup HE parameters //
@@ -272,7 +275,7 @@ int main( const int argc, const char **argv )
     // Hensel lifting (default = 1)
     long r = 1;
 
-    MEASURE_START("Building context")
+    if (!quiet) MEASURE_START("Building context")
     helib::Context ctx = helib::ContextBuilder<helib::BGV>()
         .m(m)
         .p(p)
@@ -280,23 +283,23 @@ int main( const int argc, const char **argv )
         .bits(nBits)
         .c(c)
         .build();
-    MEASURE_END
+    if (!quiet) MEASURE_END
 
     // Print the context
-    ctx.printout();
+    if (!quiet) ctx.printout();
 
     ////////////////////
     // Generate keys //
     //////////////////
     helib::SecKey sk(ctx);
 
-    MEASURE_START("Generating secret key")
+    if (!quiet) MEASURE_START("Generating secret key")
     sk.GenSecKey();
-    MEASURE_END
+    if (!quiet) MEASURE_END
 
-    MEASURE_START("Add some 1D matrices")
+    if (!quiet) MEASURE_START("Add some 1D matrices")
     helib::addSome1DMatrices(sk);
-    MEASURE_END
+    if (!quiet) MEASURE_END
 
     const helib::PubKey& pk = sk;
 
@@ -314,7 +317,8 @@ int main( const int argc, const char **argv )
     auto hours = seconds / 3600;
     auto minutes = (seconds % 3600) / 60;
     seconds = seconds % 60;
-    cout << "Evaluated in " << hours << "h " << minutes << "m " << seconds << "s " << endl;    
+    if (!quiet) cout << "Evaluated in ";
+    cout << hours << "h " << minutes << "m " << seconds << "s " << endl;    
 
     ///////////////
     // Validate //

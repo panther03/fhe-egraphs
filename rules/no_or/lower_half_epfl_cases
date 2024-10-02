@@ -1,0 +1,102 @@
+opt target : n1061 (d5)
+Input list : n1045(d2) n1049(d2) n1058(d2) n342(d1) 
+old bexp : ((not (n1058 and (not (n1049 and n1045)))) and n342)
+new bexp : (((not (n1049 and n1045)) and (n342 and n1058)) xor n342)
+
+
+opt target : n1194 (d3)
+Input list : a91(d0) a92(d0) shift0(d0) shift1(d0) 
+old bexp : ((not ((not ((not shift0) and a91)) and shift1)) and (not ((not (shift0 and a92)) and (not shift1))))
+new bexp : ((((a92 xor a91) and shift0) xor a91) and (shift1 xor shift0))
+
+
+opt target : n1011 (d2)
+Input list : a44(d0) shift0(d0) a43(d0) 
+old bexp : ((not ((not shift0) and (not a44))) and (not (shift0 and (not a43))))
+new bexp : (((a43 xor a44) and shift0) xor a44)
+
+
+opt target : n1001 (d2)
+Input list : a41(d0) shift0(d0) a42(d0) 
+old bexp : ((not (shift0 and (not a41))) and (not ((not shift0) and (not a42))))
+new bexp : (((a42 xor a41) and shift0) xor a42)
+
+
+opt target : n3554 (d5)
+Input list : n2249(d2) n2251(d2) n2258(d2) n318(d1) 
+old bexp : ((not (n2258 and (not (n2251 and n2249)))) and n318)
+new bexp : (((not (n2251 and n2249)) and (n318 and n2258)) xor n318)
+
+
+opt target : n549 (d2)
+Input list : a117(d0) shift0(d0) a118(d0) 
+old bexp : ((not (shift0 and (not a117))) and (not ((not shift0) and (not a118))))
+new bexp : (((a118 xor a117) and shift0) xor a118)
+
+
+opt target : n560 (d2)
+Input list : a120(d0) shift0(d0) a119(d0) 
+old bexp : (not ((not ((not shift0) and (not a120))) and (not (shift0 and (not a119)))))
+new bexp : ((not ((a119 xor a120) and shift0)) xor a120)
+
+
+opt target : n3522 (d5)
+Input list : n2198(d2) n2200(d2) n2207(d2) n293(d1) 
+old bexp : ((not (n2207 and (not (n2200 and n2198)))) and n293)
+new bexp : (((not (n2200 and n2198)) and (n293 and n2207)) xor n293)
+
+
+opt target : n626 (d2)
+Input list : a97(d0) shift0(d0) a98(d0) 
+old bexp : ((not (shift0 and (not a97))) and (not ((not shift0) and (not a98))))
+new bexp : (((a98 xor a97) and shift0) xor a98)
+
+
+opt target : n2283 (d3)
+Input list : a120(d0) a123(d0) shift0(d0) shift1(d0) 
+old bexp : ((not ((not (shift0 and a120)) and shift1)) and (not ((not ((not shift0) and a123)) and (not shift1))))
+new bexp : ((((a123 xor a120) and shift0) xor a123) and ((not shift1) xor shift0))
+
+
+opt target : n512 (d2)
+Input list : a124(d0) shift0(d0) a123(d0) 
+old bexp : ((not ((not shift0) and (not a124))) and (not (shift0 and (not a123))))
+new bexp : (((a123 xor a124) and shift0) xor a124)
+
+
+opt target : n828 (d2)
+Input list : a17(d0) shift0(d0) a18(d0) 
+old bexp : ((not (shift0 and (not a17))) and (not ((not shift0) and (not a18))))
+new bexp : (((a18 xor a17) and shift0) xor a18)
+
+
+opt target : n694 (d2)
+Input list : a16(d0) shift0(d0) a15(d0) 
+old bexp : (not ((not ((not shift0) and (not a16))) and (not (shift0 and (not a15)))))
+new bexp : ((not ((a15 xor a16) and shift0)) xor a16)
+
+
+opt target : n4053 (d5)
+Input list : n2515(d2) n2517(d2) n2524(d2) n267(d1) 
+old bexp : ((not (n2524 and (not (n2517 and n2515)))) and n267)
+new bexp : (((not (n2517 and n2515)) and (n267 and n2524)) xor n267)
+
+
+opt target : n612 (d2)
+Input list : a108(d0) shift0(d0) a107(d0) 
+old bexp : ((not ((not shift0) and (not a108))) and (not (shift0 and (not a107))))
+new bexp : (((a107 xor a108) and shift0) xor a108)
+
+
+opt target : n99 (d3)
+Input list : opcode4(d0) opcode3(d0) opcode0(d0) opext0(d0) 
+old bexp : (((opcode3 and (not opcode0)) and opcode4) and opext0)
+new bexp : (((not opcode0) and opext0) and (opcode3 and opcode4))
+
+
+opt target : n96 (d3)
+Input list : opext0(d0) opcode4(d0) opext1(d0) opcode3(d0) 
+old bexp : ((not (((not opext0) and opcode4) and opext1)) and ((not ((not opext1) and opcode4)) and opcode3))
+new bexp : (((not (opext1 and opext0)) and (opcode3 and opcode4)) xor opcode3)
+
+

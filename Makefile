@@ -1,11 +1,16 @@
 CKTCONV = ckt-convert/target/release/ckt-convert
 EGGTEST = eggtest/target/release/eggtest
-CKTVERIFY = ckt-verify/build/ckt-verify
+HE_EVAL = he-eval/build/he-eval
 
 BENCH ?= i2c
+RULESET ?= default
 
-all: bench
-.PHONY: $(CKTCONV) $(EGGTEST)
+INEQN = bench/$(BENCH).eqn
+INRULES = rules/$(RULESET)/leave-$(BENCH)
+OPTDIR ?= out/opt/
+
+all: verify stats eval
+#.PHONY: $(CKTCONV) $(EGGTEST) 
 
 cktconv: $(CKTCONV)
 $(CKTCONV):
@@ -15,31 +20,30 @@ eggtest: $(EGGTEST)
 $(EGGTEST):
 	cd eggtest && cargo build --release
 
-cktverify: $(CKTVERIFY)
-$(CKTVERIFY):
-	cd ckt-verify && cmake -B build && cmake --build build/
+he-eval: $(HE_EVAL)
+$(HE_EVAL):
+	cd he-eval && cmake -B build && cmake --build build/
 
-# $(CKTCONV) $(EGGTEST)
-bench: 
-	@mkdir -p out/
-	@$(CKTCONV) convert-eqn lobster_bench/$(BENCH).eqn out/$(BENCH).sexpr
-# if lobster_result/$(BENCH).eqn_opted_result exists, convert it
-	@if [ -f lobster_result/$(BENCH).eqn_opted_result ]; then \
-		$(CKTCONV) convert-eqn lobster_result/$(BENCH).eqn_opted_result out/$(BENCH)-lob.sexpr; \
-	fi
-	@$(CKTCONV) convert-rules lobster_rules/leave-$(BENCH) out/$(BENCH).rules
+out:
+	@mkdir -p out/opt
+
+# optimize a single file
+opt: out cktconv eggtest $(INEQN) $(INRULES)
+	@$(CKTCONV) convert-eqn $(INEQN) out/$(BENCH).sexpr
+	@$(CKTCONV) convert-rules $(INRULES) out/$(BENCH).rules
 	@$(EGGTEST) out/$(BENCH).sexpr out/$(BENCH).rules > out/$(BENCH)-opt.sexpr
-	@echo -n "$(BENCH),"
-	@$(CKTCONV) sexpr-stats out/$(BENCH).sexpr
-	@$(CKTCONV) sexpr-stats out/$(BENCH)-opt.sexpr
-# if we converted out/($(BENCH)-lob.sexpr), print stats, otherwise print -1,-1,
-	@if [ -f lobster_result/$(BENCH).eqn_opted_result ]; then \
-		$(CKTCONV) sexpr-stats out/$(BENCH)-lob.sexpr; \
-	else \
-		echo -n "-1,-1,"; \
-	fi
+	@$(CKTCONV) convert-sexpr out/$(BENCH)-opt.sexpr $(OPTDIR)/$(BENCH).eqn
 
-verify: bench
-	$(CKTCONV) convert-sexpr out/$(BENCH)-opt.sexpr out/$(BENCH)-opt.eqn
-	@./run_abc.sh $(BENCH)
-	
+# homomorphic evaluation
+eval: $(OPTDIR)/$(BENCH).eqn he-eval
+	@$(HE_EVAL) -q $(OPTDIR)/$(BENCH).eqn
+
+# show stats of eqn
+stats: $(OPTDIR)/$(BENCH).eqn
+	@echo -n "$(BENCH),"
+	@$(CKTCONV) stats $(OPTDIR)/$(BENCH).eqn
+	@echo -n ","
+
+# verify against ABC
+verify: $(OPTDIR)/$(BENCH).eqn
+	@./run_abc.sh $(OPTDIR)/$(BENCH).eqn

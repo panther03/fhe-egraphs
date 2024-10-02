@@ -3,6 +3,28 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::parse;
 use crate::parse::{xag_to_sexpr, Token, Xag, XagOp};
 
+pub struct Eqn<'a> {
+    pub innodes: Vec<&'a str>,
+    pub outnodes: Vec<&'a str>,
+    pub lhses: Vec<String>,
+    pub equations: HashMap<String, Xag>,
+}
+
+impl Eqn<'_> {
+    fn new() -> Self {
+        Self {
+            innodes: Vec::new(),
+            outnodes: Vec::new(),
+            lhses: Vec::new(),
+            equations: HashMap::new(),
+        }
+    }
+}
+
+/////////////////
+// Eqn -> Xag //
+///////////////
+
 fn optimize_trivial_xor(xag: Xag) -> Xag {
     let newxag = match xag.op.as_ref() {
         parse::XagOp::And(n1, n2) => {
@@ -39,7 +61,6 @@ fn optimize_trivial_xor(xag: Xag) -> Xag {
     newxag
 }
 
-// TODO nasty recursive method but probably not going to fill the e-graph this way for large circuits anyhow
 fn expand_xag(xag: Xag, expr_dict: &HashMap<String, Xag>) -> Xag {
     let newxag = match *(xag.op) {
         parse::XagOp::And(n1, n2) => Xag {
@@ -82,6 +103,93 @@ fn parse_nodes<'a>(line: &'a str, nodes: &mut Vec<&'a str>) -> bool {
     nodes.append(&mut outnodes_line);
     semicolon
 }
+
+pub fn parse_eqn<'a>(ineqn: &'a String) -> Eqn<'a> {
+    enum ParseState {
+        Init,
+        InOrder,
+        OutOrder,
+        Equations
+    }   
+    let mut state = ParseState::Init;
+    let mut eqn = Eqn::new();
+    // TODO: this can be much simplified, if we just split by semicolon instead of splitting by line break
+    for line in ineqn.lines() {
+        if line.is_empty() { continue; }
+        state = match state {
+            ParseState::Init => {
+                // assume INORDER comes before OUTORDER
+                if line.contains("INORDER") {
+                    parse_nodes(line.split("=").nth(1).unwrap(), &mut eqn.innodes);
+                    ParseState::InOrder
+                } else {
+                    ParseState::Init
+                }
+            },
+            ParseState::InOrder => {
+                if line.contains("OUTORDER") {
+                    let semicolon = parse_nodes(line.split("=").nth(1).unwrap(), &mut eqn.outnodes);
+                    if semicolon { ParseState::Equations } else { ParseState::OutOrder }
+                } else {
+                    parse_nodes(line, &mut eqn.innodes);
+                    ParseState::InOrder
+                }
+            } 
+            ParseState::OutOrder => {
+                if parse_nodes(line, &mut eqn.outnodes) {
+                    ParseState::Equations
+                } else {
+                    ParseState::OutOrder
+                }
+            }
+            ParseState::Equations => {
+                if line.contains("=") {
+                    // surely no one would put inorder after outorder...
+                    let mut split = line.split("=");
+                    let lhs = String::from(split.next().unwrap().trim());
+                    let xag = optimize_trivial_xor(parse::infix_to_xag(split.next().unwrap()));
+                    eqn.lhses.push(lhs.clone());
+                    eqn.equations.insert(lhs, xag);
+                }
+                ParseState::Equations
+            }
+        };
+    }
+    eqn
+}
+
+pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
+    // open inrules and convert it to a vector of lines
+    let lines = std::fs::read_to_string(ineqn).unwrap();
+    let mut eqn = parse_eqn(&lines);
+    let outnodes = match outnode {
+        Some(node) => vec![node],
+        None => eqn.outnodes
+    };
+    let mut contents = eqn.innodes.join(" ");
+    contents.push('\n');
+    contents.push_str(&outnodes.join(" "));
+    contents.push_str("\n($");
+    for outnode in outnodes {
+        // take the last output for the time being
+        let outnode_xag = eqn.equations.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
+        let outnode_xag = expand_xag(
+            outnode_xag,
+            &eqn.equations,
+        );
+        let outnode_contents = parse::xag_to_sexpr(outnode_xag, false);
+        contents.push(' ');
+        contents.push_str(&outnode_contents);
+    }
+    contents.push(')');
+    
+    std::fs::write(outsexpr, contents).unwrap();
+}
+
+
+/////////////////
+// Xag -> Eqn //
+///////////////
 
 fn is_xag_leaf(xag: &Xag) -> Option<&str> {
     match xag.op.as_ref() {
@@ -178,84 +286,6 @@ fn xag_to_eqn(xag: Xag, nodecnt: u32, dedup: &mut HashMap<NodeLookup,u32>, eqnou
     }
 }
 
-// TODO: this can be much simplified, if we just split by semicolon instead of splitting by line break
-pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
-    // open inrules and convert it to a vector of lines
-    let lines = std::fs::read_to_string(ineqn).unwrap();
-
-    enum ParseState {
-        Init,
-        InOrder,
-        OutOrder,
-        Equations
-    }   
-    let mut state = ParseState::Init;
-    let mut innodes: Vec<&str> = Vec::new();
-    let mut outnodes: Vec<&str> = Vec::new();
-    let mut expr_dict: HashMap<String, Xag> = HashMap::new();
-    for line in lines.lines() {
-        if line.is_empty() { continue; }
-        state = match state {
-            ParseState::Init => {
-                // assume INORDER comes before OUTORDER
-                if line.contains("INORDER") {
-                    parse_nodes(line.split("=").nth(1).unwrap(), &mut innodes);
-                    ParseState::InOrder
-                } else {
-                    ParseState::Init
-                }
-            },
-            ParseState::InOrder => {
-                if line.contains("OUTORDER") {
-                    let semicolon = parse_nodes(line.split("=").nth(1).unwrap(), &mut outnodes);
-                    if semicolon { ParseState::Equations } else { ParseState::OutOrder }
-                } else {
-                    parse_nodes(line, &mut innodes);
-                    ParseState::InOrder
-                }
-            } 
-            ParseState::OutOrder => {
-                if parse_nodes(line, &mut outnodes) {
-                    ParseState::Equations
-                } else {
-                    ParseState::OutOrder
-                }
-            }
-            ParseState::Equations => {
-                if line.contains("=") {
-                    // surely no one would put inorder after outorder...
-                    let mut split = line.split("=");
-                    let lhs = String::from(split.next().unwrap().trim());
-                    let xag = optimize_trivial_xor(parse::infix_to_xag(split.next().unwrap()));
-                    expr_dict.insert(lhs, xag);
-                }
-                ParseState::Equations
-            }
-        };
-    }
-    let outnodes = match outnode {
-        Some(node) => vec![node],
-        None => outnodes
-    };
-    let mut contents = innodes.join(" ");
-    contents.push('\n');
-    contents.push_str(&outnodes.join(" "));
-    contents.push_str("\n($");
-    for outnode in outnodes {
-        // take the last output for the time being
-        let outnode_xag = expr_dict.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
-        let outnode_xag = expand_xag(
-            outnode_xag,
-            &expr_dict,
-        );
-        let outnode_contents = parse::xag_to_sexpr(outnode_xag, false);
-        contents.push(' ');
-        contents.push_str(&outnode_contents);
-    }
-    contents.push(')');
-    
-    std::fs::write(outsexpr, contents).unwrap();
-}
 
 pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
     // open inrules and convert it to a vector of lines
