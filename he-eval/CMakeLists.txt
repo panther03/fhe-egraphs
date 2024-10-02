@@ -9,7 +9,7 @@ find_package(helib 2.2.0 EXACT REQUIRED)
 
 #message( STATUS "Using OpenFHE_LIBDIR=${OpenFHE_LIBDIR}" )
 
-#set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -g")
+set( CMAKE_CXX_FLAGS "-g")
 #
 #include_directories( ${OPENMP_INCLUDES} )
 #include_directories( ${OpenFHE_INCLUDE} )

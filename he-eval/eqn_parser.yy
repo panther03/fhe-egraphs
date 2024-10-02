@@ -93,6 +93,7 @@ eqn:
 gateinp
 	: TK_VAR {
 		GateInp *gi = new GateInp();
+	
 		gi->type = GateInp::InpType::Var;
 		gi->name = $1;
 

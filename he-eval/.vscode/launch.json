@@ -4,12 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "he-eval",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/he-eval/build/he-eval",
-            "args": ["out/i2c-opt.eqn"],
+            "program": "${workspaceFolder}/build/he-eval",
+            "args": ["../out/i2c-opt.eqn"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

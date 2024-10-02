@@ -36,6 +36,8 @@ using token = eqn::EqnParser::token;
 [ \t\r\n]+
 INORDER		{ return ( token::TK_INPUT_LIST ); }
 OUTORDER	{ return ( token::TK_OUTPUT_LIST); }
+true	    { yylval->build (1); return ( token::TK_CONST_BOOL); }
+false	    { yylval->build (0); return ( token::TK_CONST_BOOL); }
 \(			{ return ( token::TK_LPAREN); }
 \)			{ return ( token::TK_RPAREN); }
 [01]	{ 
