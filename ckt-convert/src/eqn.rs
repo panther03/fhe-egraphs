@@ -3,6 +3,28 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::parse;
 use crate::parse::{xag_to_sexpr, Token, Xag, XagOp};
 
+pub struct Eqn<'a> {
+    pub innodes: Vec<&'a str>,
+    pub outnodes: Vec<&'a str>,
+    pub lhses: Vec<String>,
+    pub equations: HashMap<String, Xag>,
+}
+
+impl Eqn<'_> {
+    fn new() -> Self {
+        Self {
+            innodes: Vec::new(),
+            outnodes: Vec::new(),
+            lhses: Vec::new(),
+            equations: HashMap::new(),
+        }
+    }
+}
+
+/////////////////
+// Eqn -> Xag //
+///////////////
+
 fn optimize_trivial_xor(xag: Xag) -> Xag {
     let newxag = match xag.op.as_ref() {
         parse::XagOp::And(n1, n2) => {
@@ -39,7 +61,6 @@ fn optimize_trivial_xor(xag: Xag) -> Xag {
     newxag
 }
 
-// TODO nasty recursive method but probably not going to fill the e-graph this way for large circuits anyhow
 fn expand_xag(xag: Xag, expr_dict: &HashMap<String, Xag>) -> Xag {
     let newxag = match *(xag.op) {
         parse::XagOp::And(n1, n2) => Xag {
@@ -83,107 +104,7 @@ fn parse_nodes<'a>(line: &'a str, nodes: &mut Vec<&'a str>) -> bool {
     semicolon
 }
 
-fn is_xag_leaf(xag: &Xag) -> Option<&str> {
-    match xag.op.as_ref() {
-        XagOp::Lit(b) => Some(if *b { "true" } else { "false" }),
-        XagOp::Ident(s) => Some(s),
-        _ => None,
-    }
-}
-
-fn fresh_node(cnt: u32) -> String {
-    format!("n{}", cnt)
-}
-
-fn xag_to_eqn(xag: Xag, outnode: &str, nodecnt: u32, eqnout: &mut String) -> u32 {
-    match *xag.op {
-        parse::XagOp::And(n1, n2) => {
-            let n1_inv = n1.inv;
-            let n2_inv = n2.inv;
-
-            let new_node = fresh_node(nodecnt);
-            let (n1_leaf, nodecnt) = match is_xag_leaf(&n1) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n1, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            let new_node = fresh_node(nodecnt);
-            let (n2_leaf, nodecnt) = match is_xag_leaf(&n2) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n2, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            eqnout.push_str(outnode);
-            eqnout.push_str(" = ");
-            if n1_inv {
-                eqnout.push('!');
-            }
-            eqnout.push_str(n1_leaf);
-            eqnout.push_str(" * ");
-            if n2_inv {
-                eqnout.push('!');
-            }
-            eqnout.push_str(n2_leaf);
-            eqnout.push_str(";\n");
-            nodecnt
-        }
-        parse::XagOp::Xor(n1, n2) => {
-            let n1_inv = n1.inv;
-            let n2_inv = n2.inv;
-
-            let new_node = fresh_node(nodecnt);
-            let (n1_leaf, nodecnt) = match is_xag_leaf(&n1) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n1, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            let new_node = fresh_node(nodecnt);
-            let (n2_leaf, nodecnt) = match is_xag_leaf(&n2) {
-                Some(s) => (s, nodecnt),
-                None => {
-                    (new_node.as_str(), xag_to_eqn(n2, &new_node, nodecnt + 1, eqnout))
-                }
-            };
-            eqnout.push_str(outnode);
-            eqnout.push_str(" = ");
-            if n1_inv {
-                eqnout.push('!');
-            }
-            eqnout.push_str(n1_leaf);
-            eqnout.push_str(" ^ ");
-            if n2_inv {
-                eqnout.push('!');
-            }
-            eqnout.push_str(n2_leaf);
-            eqnout.push_str(";\n");
-            nodecnt
-        }
-        XagOp::Lit(b) => {
-            let the_lit = if b ^ xag.inv { "true" } else { "false" };
-            eqnout.push_str(format!("{} = {};\n", outnode, the_lit).as_str());
-            nodecnt
-        },
-        XagOp::Ident(s) => {
-            eqnout.push_str(outnode);
-            eqnout.push_str(" = ");
-            if xag.inv { eqnout.push('!'); }
-            eqnout.push_str(&s);
-            eqnout.push_str(";\n");
-            nodecnt
-        },
-        _ => unreachable!()
-         // unless the graph has just one literal
-    }
-}
-
-// TODO: this can be much simplified, if we just split by semicolon instead of splitting by line break
-pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
-    // open inrules and convert it to a vector of lines
-    let lines = std::fs::read_to_string(ineqn).unwrap();
-
+pub fn parse_eqn<'a>(ineqn: &'a String) -> Eqn<'a> {
     enum ParseState {
         Init,
         InOrder,
@@ -191,16 +112,15 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
         Equations
     }   
     let mut state = ParseState::Init;
-    let mut innodes: Vec<&str> = Vec::new();
-    let mut outnodes: Vec<&str> = Vec::new();
-    let mut expr_dict: HashMap<String, Xag> = HashMap::new();
-    for line in lines.lines() {
+    let mut eqn = Eqn::new();
+    // TODO: this can be much simplified, if we just split by semicolon instead of splitting by line break
+    for line in ineqn.lines() {
         if line.is_empty() { continue; }
         state = match state {
             ParseState::Init => {
                 // assume INORDER comes before OUTORDER
                 if line.contains("INORDER") {
-                    parse_nodes(line.split("=").nth(1).unwrap(), &mut innodes);
+                    parse_nodes(line.split("=").nth(1).unwrap(), &mut eqn.innodes);
                     ParseState::InOrder
                 } else {
                     ParseState::Init
@@ -208,15 +128,15 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
             },
             ParseState::InOrder => {
                 if line.contains("OUTORDER") {
-                    let semicolon = parse_nodes(line.split("=").nth(1).unwrap(), &mut outnodes);
+                    let semicolon = parse_nodes(line.split("=").nth(1).unwrap(), &mut eqn.outnodes);
                     if semicolon { ParseState::Equations } else { ParseState::OutOrder }
                 } else {
-                    parse_nodes(line, &mut innodes);
+                    parse_nodes(line, &mut eqn.innodes);
                     ParseState::InOrder
                 }
             } 
             ParseState::OutOrder => {
-                if parse_nodes(line, &mut outnodes) {
+                if parse_nodes(line, &mut eqn.outnodes) {
                     ParseState::Equations
                 } else {
                     ParseState::OutOrder
@@ -228,26 +148,34 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
                     let mut split = line.split("=");
                     let lhs = String::from(split.next().unwrap().trim());
                     let xag = optimize_trivial_xor(parse::infix_to_xag(split.next().unwrap()));
-                    expr_dict.insert(lhs, xag);
+                    eqn.lhses.push(lhs.clone());
+                    eqn.equations.insert(lhs, xag);
                 }
                 ParseState::Equations
             }
         };
     }
+    eqn
+}
+
+pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
+    // open inrules and convert it to a vector of lines
+    let lines = std::fs::read_to_string(ineqn).unwrap();
+    let mut eqn = parse_eqn(&lines);
     let outnodes = match outnode {
         Some(node) => vec![node],
-        None => outnodes
+        None => eqn.outnodes
     };
-    let mut contents = innodes.join(" ");
+    let mut contents = eqn.innodes.join(" ");
     contents.push('\n');
     contents.push_str(&outnodes.join(" "));
     contents.push_str("\n($");
     for outnode in outnodes {
         // take the last output for the time being
-        let outnode_xag = expr_dict.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
+        let outnode_xag = eqn.equations.remove(outnode).unwrap_or_else(|| {panic!("Could not find node {} in circuit!", outnode);});
         let outnode_xag = expand_xag(
             outnode_xag,
-            &expr_dict,
+            &eqn.equations,
         );
         let outnode_contents = parse::xag_to_sexpr(outnode_xag, false);
         contents.push(' ');
@@ -257,6 +185,107 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     
     std::fs::write(outsexpr, contents).unwrap();
 }
+
+
+/////////////////
+// Xag -> Eqn //
+///////////////
+
+fn is_xag_leaf(xag: &Xag) -> Option<&str> {
+    match xag.op.as_ref() {
+        XagOp::Lit(b) => Some(if *b { "true" } else { "false" }),
+        XagOp::Ident(s) => Some(s),
+        _ => None,
+    }
+}
+
+fn fresh_node(cnt: &mut u32) -> String {
+    *cnt += 1;
+    format!("n{}", *cnt-1)
+}
+
+type NodeLookup = (String,bool,String,bool,bool);
+
+fn xag_outnode(xag: Xag, nodecnt: &mut u32, dedup: &mut HashMap<NodeLookup,u32>, eqnout: &mut String) -> String {
+    match is_xag_leaf(&xag) {
+        Some(s) => String::from(s),
+        None => {
+            let returned_cnt = xag_to_eqn(xag, *nodecnt, dedup, eqnout);
+            // we should always either make progress or refer to an existing part of the tree
+            assert!(returned_cnt != *nodecnt);
+            format!("n{}", if returned_cnt > *nodecnt { *nodecnt = returned_cnt; returned_cnt-1 } else { returned_cnt })
+        }
+    }
+}
+
+
+fn xag_to_eqn(xag: Xag, nodecnt: u32, dedup: &mut HashMap<NodeLookup,u32>, eqnout: &mut String) -> u32 {
+    let xagop = *xag.op;
+    // only two operators possible
+    let is_xor: bool = match &xagop {
+        &parse::XagOp::And(_,_) => false,
+        &parse::XagOp::Xor(_,_) => true,
+        _ => false// junk
+    };
+    match xagop {
+        parse::XagOp::And(n1, n2) | 
+        parse::XagOp::Xor(n1, n2) => {
+            let n1_inv = n1.inv;
+            let n2_inv = n2.inv;
+
+            let mut nodecnt = nodecnt; // including this node
+            let n1_out = xag_outnode(n1, &mut nodecnt, dedup, eqnout);
+            let n2_out = xag_outnode(n2, &mut nodecnt, dedup, eqnout);
+            let nodes = (n1_out, n1_inv, n2_out, n2_inv, is_xor);
+
+            match dedup.get(&nodes) {
+                Some(n) => { *n },
+                None => {
+                    let outnode = fresh_node(&mut nodecnt);
+                    eqnout.push_str(outnode.as_str());
+                    eqnout.push_str(" = ");
+                    if n1_inv {
+                        eqnout.push('!');
+                    }
+                    eqnout.push_str(nodes.0.as_str());
+                    if is_xor {
+                        eqnout.push_str(" ^ ");
+                    } else {
+                        eqnout.push_str(" * ");
+                    }
+                    if n2_inv {
+                        eqnout.push('!');
+                    }
+                    eqnout.push_str(nodes.2.as_str());
+                    eqnout.push_str(";\n");
+                    
+                    dedup.insert(nodes, nodecnt - 1); // nodecnt - 1 = last node we added, which is this one
+                    nodecnt
+                }
+            }
+        },
+        XagOp::Lit(b) => {
+            let the_lit = if b ^ xag.inv { "true" } else { "false" };
+            let mut nodecnt = nodecnt;
+            let outnode = fresh_node(&mut nodecnt);
+            eqnout.push_str(format!("{} = {};\n", outnode, the_lit).as_str());
+            nodecnt
+        },
+        XagOp::Ident(s) => {
+            let mut nodecnt = nodecnt;
+            let outnode = fresh_node(&mut nodecnt);
+            eqnout.push_str(&outnode);
+            eqnout.push_str(" = ");
+            if xag.inv { eqnout.push('!'); }
+            eqnout.push_str(&s);
+            eqnout.push_str(";\n");
+            nodecnt
+        },
+        _ => unreachable!()
+         // unless the graph has just one literal
+    }
+}
+
 
 pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
     // open inrules and convert it to a vector of lines
@@ -268,24 +297,21 @@ pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
     let mut nodecnt = 0;
     let outnodes = outnodes.split(" ");
     let sexpr = parse::lex(sexpr_lines.next().unwrap());
+    let mut dedup = HashMap::new();
     let xag = parse::sexpr_to_xag(sexpr);
     if let XagOp::Concat(xs) = *xag.op {
         let _ = xs
         .into_iter()
         .zip(outnodes)
         .for_each(|(x, on)| {
-                let new_node = fresh_node(nodecnt);
-                let on2 = if x.inv {
-                    nodecnt += 1;
-                    new_node.as_str()
-                } else {
-                    on
-                };
-                let x_inv = x.inv;
-                nodecnt = xag_to_eqn(x, on2, nodecnt, &mut eqn);
-                if x_inv {
-                    eqn.push_str(format!("{} = !{};\n", on, on2).as_str());
-                }
+            let x_inv = x.inv;
+            let new_nodecnt = xag_to_eqn(x, nodecnt, &mut dedup, &mut eqn);
+            nodecnt = if new_nodecnt > nodecnt {new_nodecnt} else {nodecnt};
+            if x_inv {
+                eqn.push_str(format!("{} = !n{};\n", on, nodecnt-1).as_str());
+            } else {
+                eqn.push_str(format!("{} = n{};\n", on, nodecnt-1).as_str());
+            }
         });
     }
     std::fs::write(outeqn, eqn).unwrap();

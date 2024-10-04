@@ -1,0 +1,5 @@
+opt target : n185 (d6)
+Input list : n95(d0) n108(d4) n184(d0) 
+old bexp : (((not n108) and n95) and n184)
+new bexp : ((n184 and n95) and (not n108))
+

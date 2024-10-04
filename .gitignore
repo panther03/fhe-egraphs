@@ -1,1 +1,5 @@
 out/
+build/
+abc.history
+helib.log
+**/helib.log

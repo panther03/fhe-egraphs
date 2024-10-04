@@ -68,8 +68,8 @@ fn main() {
 
     let start_string = std::fs::read_to_string(start_expr_path).unwrap();
     let mut start_lines = start_string.lines();
-    start_lines.next();
-    start_lines.next();
+    let innodes = start_lines.next().unwrap();
+    let outnodes = start_lines.next().unwrap();
     let start = String::from(start_lines.next().unwrap());
     let start = start.parse().unwrap();
 
@@ -93,8 +93,8 @@ fn main() {
     let (default_cost, _) = extractor.find_best(runner.roots[0]);
 
 
-    println!("Before: {}", start);
-    println!("After: {}", best_expr);
+    //println!("Before: {}", start);
+    println!("{}\n{}\n{}", innodes, outnodes, best_expr);
     println!("Cost : {} => {}", default_cost, best_cost);
 
     // we found the best thing, which is just "a" in this case

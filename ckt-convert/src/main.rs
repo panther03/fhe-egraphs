@@ -40,7 +40,7 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
-    SexprStats {
+    Stats {
         /// Input file to operate on
         infile: PathBuf,
     }
@@ -57,17 +57,7 @@ fn main() {
         Commands::ConvertEqn { outnode, infile, outfile } => {
             eqn::convert_eqn(infile, outfile, outnode.as_deref());
         }
-        Commands::SexprStats { infile } => {
-            // open inrules and convert it to a vector of lines
-            let sexpr = std::fs::read_to_string(infile).unwrap();
-            let mut sexpr_lines = sexpr.lines();
-            sexpr_lines.next();
-            sexpr_lines.next();
-            let sexpr = parse::lex(sexpr_lines.next().unwrap());
-            let xag = parse::sexpr_to_xag(sexpr);
-            println!("MC: {}", stats::mult_complexity(&xag));
-            println!("MD: {}", stats::mult_depth(&xag));
-        },
+        Commands::Stats { infile } => { stats::file_stats(infile); },
         Commands::ConvertSexpr { infile, outfile } => {
             eqn::convert_sexpr(infile, outfile);
         }
