@@ -118,15 +118,12 @@ gate
 		{
 		Gate *g = new Gate();
 		GateInp *l = $2;
-		l->polarity = !l->polarity;
 		GateInp *r = $4;
+		
+		GateInp *l2 = $8;
+		GateInp *r2 = $10;
 
-		if ((($2)->polarity == ($4)->polarity) || (($2)->polarity == ($8)->polarity) || (($4)->polarity == ($10)->polarity)
-			|| (($2)->name != ($8)->name) || (($4)->name != ($10)->name)) {
-			std::cerr << "malformatted xor, panic\n";
-			exit(1);
-		}
-
+		l->polarity = !l->polarity;
 		g->op = Gate::Op::XOR;
 		g->left = l;
 		g->right = r;

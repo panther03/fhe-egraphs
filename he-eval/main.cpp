@@ -36,8 +36,7 @@ class CircuitEvaluator {
                 helib::Ctxt ct(pk);
                 bool pt = (bool)(rand() % 2);
 
-                if (debug)
-                    cout << "input :" << input << " : " << pt << endl;
+                if (debug) cout << "input :" << input << " : " << pt << endl;
                 pk.Encrypt(ct, NTL::to_ZZX(pt));
                 memory.insert( make_pair(input, make_pair(ct, pt)));
             }
@@ -90,7 +89,7 @@ class CircuitEvaluator {
 
                         leftPair.first += rightPair.first;
 
-                        leftPair.second = leftPair.second && rightPair.second;
+                        leftPair.second = leftPair.second ^ rightPair.second;
 
                         memory.insert(make_pair(net, leftPair));
                     }
@@ -243,7 +242,7 @@ int main( const int argc, const char **argv )
     vector<string> outputlist = driver.outputlist;
     vector<tuple<string, Gate*>> eqnlist = driver.eqnlist;
 
-    long depth = 13; // atoi(args[1]);
+    long depth = find_md(eqnlist);
     if (!quiet) cout << "Depth = " << depth << endl;
 
     //////////////////////////

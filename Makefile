@@ -24,11 +24,11 @@ he-eval: $(HE_EVAL)
 $(HE_EVAL):
 	cd he-eval && cmake -B build && cmake --build build/
 
-out:
-	@mkdir -p out/opt
+$(OPTDIR):
+	@mkdir -p $(OPTDIR)
 
 # optimize a single file
-opt: out cktconv eggtest $(INEQN) $(INRULES)
+opt: $(OPTDIR) cktconv eggtest $(INEQN) $(INRULES)
 	@$(CKTCONV) convert-eqn $(INEQN) out/$(BENCH).sexpr
 	@$(CKTCONV) convert-rules $(INRULES) out/$(BENCH).rules
 	@$(EGGTEST) out/$(BENCH).sexpr out/$(BENCH).rules > out/$(BENCH)-opt.sexpr
