@@ -1,5 +1,6 @@
-use egg::{*, rewrite as rw};
-use std::collections::HashMap;
+use egg::{rewrite as rw, *};
+use std::{collections::HashMap, str::FromStr};
+use std::time::Duration;
 
 define_language! {
     enum Prop {
@@ -13,8 +14,8 @@ define_language! {
     }
 }
 
-fn process_rules(rules_string: &str )-> Vec<Rewrite<Prop,()>> {
-    let mut rules: Vec<Rewrite<Prop,()>> = vec![
+fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
+    let mut rules: Vec<Rewrite<Prop, ()>> = vec![
         // Basic commutativity rules, which Lobster assumes
         rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
         rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
@@ -30,9 +31,9 @@ fn process_rules(rules_string: &str )-> Vec<Rewrite<Prop,()>> {
     rules
 }
 
-fn egraph_from_seqn(innodes: &str, eqns: &str) -> (HashMap<String,Id>,EGraph<Prop, ()>) {
+fn egraph_from_seqn(innodes: &str, eqns: &str) -> (HashMap<String, Id>, EGraph<Prop, ()>) {
     let mut egraph = EGraph::<Prop, ()>::default();
-    let mut ckt_node_to_eclass:  HashMap<String,Id> = HashMap::new();
+    let mut ckt_node_to_eclass: HashMap<String, Id> = HashMap::new();
     for innode in innodes.split(" ") {
         //println!("{}", innode);
         let id = egraph.add(Prop::Symbol(Symbol::new(innode)));
@@ -50,15 +51,21 @@ fn egraph_from_seqn(innodes: &str, eqns: &str) -> (HashMap<String,Id>,EGraph<Pro
         let src1 = ckt_node_to_eclass.get(rhs.next().unwrap());
         let src2 = ckt_node_to_eclass.get(rhs.next().unwrap());
         let id = match op {
-            "^" => egraph.add(Prop::Xor([src1.unwrap().to_owned(), src2.unwrap().to_owned()])),
-            "*" => egraph.add(Prop::And([src1.unwrap().to_owned(), src2.unwrap().to_owned()])),
+            "^" => egraph.add(Prop::Xor([
+                src1.unwrap().to_owned(),
+                src2.unwrap().to_owned(),
+            ])),
+            "*" => egraph.add(Prop::And([
+                src1.unwrap().to_owned(),
+                src2.unwrap().to_owned(),
+            ])),
             "!" => egraph.add(Prop::Not(src1.unwrap().to_owned())),
             "w" => src1.unwrap().to_owned(),
             _ => panic!("unrecognized op {}", op),
         };
         ckt_node_to_eclass.insert(lhs.to_string(), id);
     }
-    (ckt_node_to_eclass,egraph)
+    (ckt_node_to_eclass, egraph)
 }
 
 pub struct MultComplexity;
@@ -73,6 +80,15 @@ impl egg::CostFunction<Prop> for MultComplexity {
             _ => 0,
         };
         enode.fold(op_cost, |sum, i| sum + costs(i))
+    }
+}
+
+impl<N: Analysis<Prop>> LpCostFunction<Prop, N> for MultComplexity {
+    fn node_cost(&mut self, _egraph: &EGraph<Prop, N>, _eclass: Id, enode: &Prop) -> f64 {
+        match enode {
+            Prop::And(..) => 1.0,
+            _ => 0.0,
+        }
     }
 }
 
@@ -91,24 +107,28 @@ impl egg::CostFunction<Prop> for MultDepth {
     }
 }
 
-fn greedy_dag_extract<'a, CF, N> (extractor: &'a Extractor<'a, CF, Prop, N>, outnode_ids: Vec<(Id,String)>) -> String
+fn greedy_dag_extract<'a, CF, N>(
+    extractor: &'a Extractor<'a, CF, Prop, N>,
+    outnodes: &str,
+    outnode_ids: &Vec<Id>,
+) -> String
 where
     CF: CostFunction<Prop>,
-    N: Analysis<Prop> 
+    N: Analysis<Prop>,
 {
     // temporary network to hold nodes whose children have not been visited yet
     let mut network: Vec<String> = Vec::new();
     // the network which we will output
     let mut real_network: Vec<String> = Vec::new();
     // set of visited nodes
-    let mut eclass_seen: HashMap<Id,Id> = HashMap::new();
+    let mut eclass_seen: HashMap<Id, Id> = HashMap::new();
 
     // stack of visited nodes
     let mut todo_nodes: Vec<Id> = Vec::new();
     // if completing this node also means the parent is done
     let mut todo_finishes: Vec<bool> = Vec::new();
 
-    for (o_id,_) in &outnode_ids {
+    for o_id in outnode_ids {
         todo_nodes.push(*o_id);
         todo_finishes.push(false);
     }
@@ -123,25 +143,40 @@ where
         let already_added = eclass_seen.get(&eclass).is_some();
         if !already_added {
             let enode = extractor.find_best_node(eclass);
-            eclass_seen.insert(eclass,eclass);
+            eclass_seen.insert(eclass, eclass);
             match enode {
-                Prop::And([a,b]) => {
+                Prop::And([a, b]) => {
                     netd.push_str(format!("n{} * n{};", a, b).as_str());
-    
-                    if eclass_seen.get(&a).is_none() {todo_nodes.push(*a); new_children += 1;}
-                    if eclass_seen.get(&b).is_none() {todo_nodes.push(*b); new_children += 1;}
-                },
-                Prop::Xor([a,b]) => {
+
+                    if eclass_seen.get(&a).is_none() {
+                        todo_nodes.push(*a);
+                        new_children += 1;
+                    }
+                    if eclass_seen.get(&b).is_none() {
+                        todo_nodes.push(*b);
+                        new_children += 1;
+                    }
+                }
+                Prop::Xor([a, b]) => {
                     netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
-    
-                    if eclass_seen.get(&a).is_none() {todo_nodes.push(*a); new_children += 1;}
-                    if eclass_seen.get(&b).is_none() {todo_nodes.push(*b); new_children += 1;}
-                },
+
+                    if eclass_seen.get(&a).is_none() {
+                        todo_nodes.push(*a);
+                        new_children += 1;
+                    }
+                    if eclass_seen.get(&b).is_none() {
+                        todo_nodes.push(*b);
+                        new_children += 1;
+                    }
+                }
                 Prop::Not(a) => {
                     netd.push_str(format!("!n{};", a).as_str());
-    
-                    if eclass_seen.get(&a).is_none() {todo_nodes.push(*a); new_children += 1;}
-                },
+
+                    if eclass_seen.get(&a).is_none() {
+                        todo_nodes.push(*a);
+                        new_children += 1;
+                    }
+                }
                 Prop::Symbol(s) => {
                     netd.push_str(s.as_str());
                     netd.push(';');
@@ -180,16 +215,72 @@ where
     }
     assert!(todo_finishes.is_empty());
 
-    for (o_id,o_name) in outnode_ids {
+    for (o_id, o_name) in outnode_ids.iter().zip(outnodes.split(" ")) {
         real_network.push(format!("{} = n{};", o_name, o_id));
     }
-    
+
     real_network.join("\n")
 }
 
+fn extract2(expr: RecExpr<Prop>, outnodes: &str, outnode_ids: &Vec<Id>) -> String {
+    let mut network: Vec<String> = Vec::new();
+
+    for (id, p) in expr.as_ref().iter().enumerate() {
+        let mut netd = format!("n{id} = ");
+        match p {
+            Prop::And([a, b]) => {
+                netd.push_str(format!("n{} * n{};", a, b).as_str());
+            }
+            Prop::Xor([a, b]) => {
+                netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
+            }
+            Prop::Not(a) => {
+                netd.push_str(format!("!n{};", a).as_str());
+            }
+            Prop::Symbol(s) => {
+                netd.push_str(s.as_str());
+                netd.push(';');
+            }
+            Prop::Bool(b) => {
+                netd.push_str(if *b { "true;" } else { "false;" });
+            }
+            _ => {}
+        }
+        network.push(netd);
+    }
+
+    for (o_id, o_name) in outnode_ids.iter().zip(outnodes.split(" ")) {
+        network.push(format!("{} = n{};", o_name, o_id));
+    }
+
+    network.join("\n")
+}
+
+enum ExtractMode {
+    MC,
+    MD,
+}
+
+impl FromStr for ExtractMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mc" => Ok(Self::MC),
+            "md" => Ok(Self::MD),
+            _ => Err(()),
+        }
+    }
+}
+
 fn main() {
-    let start_expr_path  = std::env::args().nth(1).expect("No input expr file given!");
-    let rules_path = std::env::args().nth(2).expect("No input rules file given!");
+    let mode: ExtractMode = std::env::args()
+        .nth(1)
+        .expect("No mode supplied!")
+        .parse()
+        .unwrap();
+    let start_expr_path = std::env::args().nth(2).expect("No input expr file given!");
+    let rules_path = std::env::args().nth(3).expect("No input rules file given!");
 
     let rules_string = std::fs::read_to_string(rules_path).unwrap();
     let rules = process_rules(&rules_string);
@@ -199,19 +290,38 @@ fn main() {
     let innodes = start_lines.next().unwrap();
     let outnodes = start_lines.next().unwrap();
     let start = start_lines.collect::<Vec<&str>>().join("\n");
-    let (ckt_node_to_eclass,start_egraph) = egraph_from_seqn(innodes, start.as_str());
+    let (ckt_node_to_eclass, start_egraph) = egraph_from_seqn(innodes, start.as_str());
 
-    let runner = Runner::default().with_egraph(start_egraph).run(rules.iter());
-    
-    let extractor = Extractor::new(&runner.egraph, MultDepth);
+    let runner = Runner::default()
+        .with_egraph(start_egraph)
+        .with_time_limit(Duration::from_secs(30))
+        .with_node_limit(100000)
+        .run(rules.iter());
+    dbg!("Aaa");
 
-    let mut outnode_ids: Vec<(Id,String)> = Vec::new();
+    let mut outnode_ids: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
-        let id = ckt_node_to_eclass.get(outnode).unwrap_or_else(|| panic!("no eclass matching output net {}", outnode));
-        outnode_ids.push((*id, outnode.to_string()));
+        let id = ckt_node_to_eclass
+            .get(outnode)
+            .unwrap_or_else(|| panic!("no eclass matching output net {}", outnode));
+        outnode_ids.push(*id);
     }
 
-    let network = greedy_dag_extract(&extractor, outnode_ids);
-    println!("INORDER = {};\nOUTORDER = {};",innodes,outnodes);
-    println!("{}", network);
+    let network = match mode {
+        ExtractMode::MD => {
+            let extractor = Extractor::new(&runner.egraph, MultDepth);
+            greedy_dag_extract(&extractor, outnodes, &outnode_ids)
+        }
+        ExtractMode::MC => {
+            let mut extractor = LpExtractor::new(&runner.egraph, AstSize);
+            extractor.timeout(100000.0); // way too much time
+            let (exp, outnode_ids) = extractor.solve_multiple(outnode_ids.as_slice());
+            extract2(exp, outnodes, &outnode_ids)
+        }
+    };
+
+    println!(
+        "INORDER = {};\nOUTORDER = {};\n{}",
+        innodes, outnodes, network
+    );
 }
