@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 egg = { version = "0.9.5", features = ["lp"] }
+env_logger = "0.11.5"

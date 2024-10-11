@@ -1,4 +1,5 @@
 use egg::{rewrite as rw, *};
+use std::cmp::Ordering;
 use std::{collections::HashMap, str::FromStr};
 use std::time::Duration;
 
@@ -104,6 +105,55 @@ impl egg::CostFunction<Prop> for MultDepth {
             _ => 0,
         };
         op_cost + enode.fold(0, |max, i| max.max(costs(i)))
+    }
+}
+
+
+#[derive(Clone,Debug)]
+struct DepthArea {
+    depth: usize,
+    area: usize,
+}
+impl DepthArea {
+    fn cost(&self) -> usize {
+        self.depth*self.depth * self.area
+    }
+    fn new() -> Self {
+        DepthArea { depth: 0, area: 0 }
+    }
+}
+impl std::ops::Add<DepthArea> for DepthArea {
+    type Output = DepthArea;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            depth: std::cmp::max(self.depth,rhs.depth),
+            area: self.area + rhs.area
+        }
+    }
+}
+impl PartialEq for DepthArea {
+    fn eq(&self, other: &DepthArea) -> bool {
+        self.cost().eq(&other.cost())
+    }
+}
+impl PartialOrd for DepthArea {
+    fn partial_cmp(&self, other: &DepthArea) -> Option<Ordering> {
+        self.cost().partial_cmp(&other.cost())
+    }
+}
+pub struct MixedCost;
+impl egg::CostFunction<Prop> for MixedCost {
+    type Cost = DepthArea;
+    fn cost<C>(&mut self, enode: &Prop, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
+    {
+        let mut base = enode.fold(DepthArea::new(), |sum, i| sum + costs(i));
+        match enode {
+            Prop::And(_) => {base.area += 1; base.depth += 1;},
+            _ => {}
+        };
+        base
     }
 }
 
@@ -274,18 +324,19 @@ impl FromStr for ExtractMode {
 }
 
 fn main() {
+    env_logger::init();
     let mode: ExtractMode = std::env::args()
         .nth(1)
         .expect("No mode supplied!")
         .parse()
-        .unwrap();
+        .expect("Invalid mode!");
     let start_expr_path = std::env::args().nth(2).expect("No input expr file given!");
     let rules_path = std::env::args().nth(3).expect("No input rules file given!");
 
     let rules_string = std::fs::read_to_string(rules_path).unwrap();
     let rules = process_rules(&rules_string);
 
-    let start_string = std::fs::read_to_string(start_expr_path).unwrap();
+    let start_string = std::fs::read_to_string(start_expr_path.clone()).unwrap();
     let mut start_lines = start_string.lines();
     let innodes = start_lines.next().unwrap();
     let outnodes = start_lines.next().unwrap();
@@ -295,9 +346,9 @@ fn main() {
     let runner = Runner::default()
         .with_egraph(start_egraph)
         .with_time_limit(Duration::from_secs(30))
-        .with_node_limit(100000)
+        .with_node_limit(100000000)
         .run(rules.iter());
-    dbg!("Aaa");
+    dbg!("extract {}", &start_expr_path);
 
     let mut outnode_ids: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
@@ -309,7 +360,7 @@ fn main() {
 
     let network = match mode {
         ExtractMode::MD => {
-            let extractor = Extractor::new(&runner.egraph, MultDepth);
+            let extractor = Extractor::new(&runner.egraph, MultComplexity);
             greedy_dag_extract(&extractor, outnodes, &outnode_ids)
         }
         ExtractMode::MC => {
@@ -324,4 +375,5 @@ fn main() {
         "INORDER = {};\nOUTORDER = {};\n{}",
         innodes, outnodes, network
     );
+    dbg!("write {}", &start_expr_path);
 }
