@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/he-eval",
-            "args": ["../out/i2c-opt.eqn"],
+            "args": ["../bench/lobster/hd03.eqn"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

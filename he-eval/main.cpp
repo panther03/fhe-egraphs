@@ -1,9 +1,6 @@
 #include <iostream>
-#include <cstdlib>
-#include <cstring>
 #include <map>
 #include <string>
-#include <ctime>
 
 #include <fstream>
 #include <sstream>
@@ -15,6 +12,7 @@
 
 #include "eqn_driver.hpp"
 #include "utils.hpp"
+#include "regalloc.hpp"
 
 using namespace std;
 using namespace eqn;
@@ -26,19 +24,23 @@ class CircuitEvaluator {
     public:
         helib::Ctxt trueCt;
         helib::Ctxt falseCt;
-        map<string, pair<helib::Ctxt, bool>> memory;
+        optional<pair<helib::Ctxt, bool>>* registers;
         const helib::PubKey &pk;
+        const RegisterAllocator &ra;
         bool debug;
 
-        CircuitEvaluator(vector<string> &inputlist, const helib::PubKey& pk, bool debug=false) 
-            : trueCt(pk), falseCt(pk), pk(pk), debug(debug) {
+        CircuitEvaluator(vector<string> &inputlist, const helib::PubKey& pk, const RegisterAllocator& ra, bool debug=false) 
+            : trueCt(pk), falseCt(pk), pk(pk), ra(ra), debug(debug) {
+            registers = new optional<pair<helib::Ctxt, bool>>[ra.colors]();
+
             for (auto &input: inputlist) {
                 helib::Ctxt ct(pk);
                 bool pt = (bool)(rand() % 2);
 
                 if (debug) cout << "input :" << input << " : " << pt << endl;
                 pk.Encrypt(ct, NTL::to_ZZX(pt));
-                memory.insert( make_pair(input, make_pair(ct, pt)));
+                int reg = ra.net2reg(input);
+                registers[reg] = make_pair(ct, pt);
             }
             pk.Encrypt(trueCt, NTL::to_ZZX(1));
             pk.Encrypt(falseCt, NTL::to_ZZX(0));
@@ -47,7 +49,10 @@ class CircuitEvaluator {
         void evaluate(vector<tuple<string, Gate*>> &eqnlist) {
             for (auto &eqn : eqnlist) {
                 string net = get<0>(eqn);
+                int reg = ra.net2reg(net);
                 Gate* gate = get<1>(eqn);
+
+                pair<helib::Ctxt, bool>* newVal = NULL;
 
                 switch (gate->op) {
                     case Gate::Op::AND: {
@@ -61,7 +66,9 @@ class CircuitEvaluator {
 
                         leftPair.second = leftPair.second && rightPair.second;
 
-                        memory.insert(make_pair(net, leftPair));
+                        registers[reg] = std::nullopt;
+                        registers[reg] = leftPair;
+                        break;
                     }
                     case Gate::Op::OR: {
                         GateInp* left = gate->left;
@@ -79,7 +86,9 @@ class CircuitEvaluator {
 
                         leftPair.second = !(leftPair.second && rightPair.second);
 
-                        memory.insert(make_pair(net, leftPair));
+                        registers[reg] = std::nullopt;
+                        registers[reg] = leftPair;
+                        break;
                     }
                     case Gate::Op::XOR: {
                         GateInp* left = gate->left;
@@ -91,15 +100,20 @@ class CircuitEvaluator {
 
                         leftPair.second = leftPair.second ^ rightPair.second;
 
-                        memory.insert(make_pair(net, leftPair));
+                        registers[reg] = std::nullopt;
+                        registers[reg] = leftPair;
+                        break;
                     }
                     case Gate::Op::WIRE: {
                         GateInp* left = gate->left;
                         pair<helib::Ctxt, bool> leftPair = evaluateGateInp(left);
 
-                        memory.insert(make_pair(net, leftPair));
+                        registers[reg] = std::nullopt;
+                        registers[reg] = leftPair;
+                        break;
                     }
                 }
+                
                 if (debug) cout << "Evaluated " << net << endl;                
             }
         }
@@ -107,7 +121,8 @@ class CircuitEvaluator {
         void validate(vector<string> &outputlist, const helib::SecKey &sk) {
             for (auto &out: outputlist) {
                 NTL::ZZX tmp_res;
-                pair<helib::Ctxt, bool> &p = memory.find(out)->second;
+                int reg = ra.net2reg(out);
+                pair<helib::Ctxt, bool> p = registers[reg].value();
                 sk.Decrypt(tmp_res, p.first);
                 if (tmp_res[0] != p.second) {
                     cerr << "Output " << out << " disagrees with plaintext: " << "CT " << tmp_res[0] << " vs PT " << p.second << endl; 
@@ -123,14 +138,12 @@ class CircuitEvaluator {
                 resultCt = gi->polarity ? trueCt : falseCt;
                 resultPt = gi->polarity ? true : false;
             } else if (gi->type == GateInp::InpType::Var) {
-                auto it = memory.find(gi->name);
-                if (it == memory.end())  {
-                    cerr << "Can't find " << gi->name << "in memory.." << endl;
-                    exit(1);
-                }
-                std::pair<helib::Ctxt,bool> &resultPair = it->second;
-                resultCt = resultPair.first;
-                resultPt = resultPair.second;
+                int reg = ra.net2reg(gi->name);
+                auto pair = registers[reg];
+                // child has been computed
+                assert(pair.has_value());
+                resultCt = pair.value().first;
+                resultPt = pair.value().second;
                 if (!gi->polarity) {
                     resultCt += trueCt;
                     resultPt = !resultPt;
@@ -246,6 +259,14 @@ int main( const int argc, const char **argv )
     if (!quiet) cout << "Depth = " << depth << endl;
 
     //////////////////////////
+    // Register Allocation //
+    ////////////////////////
+    if (!quiet) MEASURE_START("Allocate registers...")
+    RegisterAllocator ra (inputlist, eqnlist, quiet);
+    if (!quiet) MEASURE_END
+    //exit(0);
+
+    //////////////////////////
     // Setup HE parameters //
     ////////////////////////
 
@@ -305,7 +326,7 @@ int main( const int argc, const char **argv )
     ///////////////////////
     // Setup plaintexts //
     ///////////////////// 
-    CircuitEvaluator ce(inputlist, pk, debug);
+    CircuitEvaluator ce(inputlist, pk, ra, debug);
 
     //////////////////////
     // Execute circuit //
