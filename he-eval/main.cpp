@@ -24,14 +24,15 @@ class CircuitEvaluator {
     public:
         helib::Ctxt trueCt;
         helib::Ctxt falseCt;
-        optional<pair<helib::Ctxt, bool>>* registers;
+        optional<helib::Ctxt>* registers;
+        map<string, bool> plaintext_memory;
         const helib::PubKey &pk;
         const RegisterAllocator &ra;
         bool debug;
 
         CircuitEvaluator(vector<string> &inputlist, const helib::PubKey& pk, const RegisterAllocator& ra, bool debug=false) 
             : trueCt(pk), falseCt(pk), pk(pk), ra(ra), debug(debug) {
-            registers = new optional<pair<helib::Ctxt, bool>>[ra.colors]();
+            registers = new optional<helib::Ctxt>[ra.colors]();
 
             for (auto &input: inputlist) {
                 helib::Ctxt ct(pk);
@@ -40,7 +41,8 @@ class CircuitEvaluator {
                 if (debug) cout << "input :" << input << " : " << pt << endl;
                 pk.Encrypt(ct, NTL::to_ZZX(pt));
                 int reg = ra.net2reg(input);
-                registers[reg] = make_pair(ct, pt);
+                registers[reg] = ct;
+                plaintext_memory[input] = pt;
             }
             pk.Encrypt(trueCt, NTL::to_ZZX(1));
             pk.Encrypt(falseCt, NTL::to_ZZX(0));
@@ -52,7 +54,7 @@ class CircuitEvaluator {
                 int reg = ra.net2reg(net);
                 Gate* gate = get<1>(eqn);
 
-                pair<helib::Ctxt, bool>* newVal = NULL;
+                bool newVal;
 
                 switch (gate->op) {
                     case Gate::Op::AND: {
@@ -63,11 +65,11 @@ class CircuitEvaluator {
 
                         leftPair.first *= rightPair.first;
                         leftPair.first.reLinearize();
-
-                        leftPair.second = leftPair.second && rightPair.second;
-
+                        
                         registers[reg] = std::nullopt;
-                        registers[reg] = leftPair;
+                        registers[reg] = leftPair.first;
+
+                        newVal = leftPair.second && rightPair.second;
                         break;
                     }
                     case Gate::Op::OR: {
@@ -84,10 +86,10 @@ class CircuitEvaluator {
                         leftPair.first += trueCt;
                         leftPair.first.reLinearize();
 
-                        leftPair.second = !(leftPair.second && rightPair.second);
-
                         registers[reg] = std::nullopt;
-                        registers[reg] = leftPair;
+                        registers[reg] = leftPair.first;
+
+                        newVal = !(leftPair.second && rightPair.second);
                         break;
                     }
                     case Gate::Op::XOR: {
@@ -97,11 +99,10 @@ class CircuitEvaluator {
                         pair<helib::Ctxt, bool> rightPair = evaluateGateInp(right);
 
                         leftPair.first += rightPair.first;
-
-                        leftPair.second = leftPair.second ^ rightPair.second;
-
                         registers[reg] = std::nullopt;
-                        registers[reg] = leftPair;
+                        registers[reg] = leftPair.first;
+
+                        newVal = leftPair.second ^ rightPair.second;
                         break;
                     }
                     case Gate::Op::WIRE: {
@@ -109,11 +110,14 @@ class CircuitEvaluator {
                         pair<helib::Ctxt, bool> leftPair = evaluateGateInp(left);
 
                         registers[reg] = std::nullopt;
-                        registers[reg] = leftPair;
+                        registers[reg] = leftPair.first;
+
+                        newVal = leftPair.second;
                         break;
                     }
                 }
                 
+                plaintext_memory[net] = newVal;
                 if (debug) cout << "Evaluated " << net << endl;                
             }
         }
@@ -122,10 +126,11 @@ class CircuitEvaluator {
             for (auto &out: outputlist) {
                 NTL::ZZX tmp_res;
                 int reg = ra.net2reg(out);
-                pair<helib::Ctxt, bool> p = registers[reg].value();
-                sk.Decrypt(tmp_res, p.first);
-                if (tmp_res[0] != p.second) {
-                    cerr << "Output " << out << " disagrees with plaintext: " << "CT " << tmp_res[0] << " vs PT " << p.second << endl; 
+                helib::Ctxt &ct = registers[reg].value();
+                bool pt = plaintext_memory.find(out)->second;
+                sk.Decrypt(tmp_res, ct);
+                if (tmp_res[0] != pt) {
+                    cerr << "Output " << out << " disagrees with plaintext: " << "CT " << tmp_res[0] << " vs PT " << pt << endl; 
                     exit(EXIT_FAILURE);
                 }
             }
@@ -139,11 +144,15 @@ class CircuitEvaluator {
                 resultPt = gi->polarity ? true : false;
             } else if (gi->type == GateInp::InpType::Var) {
                 int reg = ra.net2reg(gi->name);
-                auto pair = registers[reg];
-                // child has been computed
-                assert(pair.has_value());
-                resultCt = pair.value().first;
-                resultPt = pair.value().second;
+                
+                auto &resultCtOpt = registers[reg];
+                assert(resultCtOpt.has_value());
+                resultCt = resultCtOpt.value();
+
+                auto it = plaintext_memory.find(gi->name);
+                assert(it != plaintext_memory.end());
+                resultPt = it->second;
+
                 if (!gi->polarity) {
                     resultCt += trueCt;
                     resultPt = !resultPt;
