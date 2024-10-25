@@ -186,6 +186,49 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     std::fs::write(outsexpr, contents).unwrap();
 }
 
+pub fn expr_to_list(x: &Xag) -> Result<String,()> {
+    let is_xor: bool = match x.op.as_ref() {
+        &parse::XagOp::And(_,_) => false,
+        &parse::XagOp::Xor(_,_) => true,
+        _ => false// junk
+    };
+    
+    match x.op.as_ref() {
+        XagOp::And(n1, n2) | XagOp::Xor(n1, n2) => {
+            if x.inv { return Err(()); }
+            let XagOp::Ident(s1) = n1.op.as_ref() else { return Err(()) };
+            if n1.inv || n2.inv { return Err(()); }
+            let XagOp::Ident(s2) = n2.op.as_ref() else { return Err(()) };
+            Ok(format!("{};{};{}", if is_xor {"^"} else {"*"}, s1, s2))
+        },
+        XagOp::Lit(b) => Ok(format!("w;{};", b)),
+        XagOp::Ident(s) => {
+            if x.inv {  
+                Ok(format!("!;{};", s))
+            } else {
+                Ok(format!("w;{};", s))
+            }
+        },
+        XagOp::Concat(_) => Err(())
+    }
+}
+
+pub fn convert_seqn(ineqn: PathBuf, outseqn: PathBuf) {
+    let lines = std::fs::read_to_string(ineqn).unwrap();
+    let mut eqn = parse_eqn(&lines);
+    let mut contents = eqn.innodes.join(" ");
+    contents.push('\n');
+    contents.push_str(&(eqn.outnodes).join(" "));
+
+    for lhs in eqn.lhses {
+        let rhs = eqn.equations.get(&lhs).unwrap();
+        let rhs = expr_to_list(rhs).unwrap();
+        contents.push_str(format!("\n{}={}", lhs, rhs).as_str());
+    }
+
+    std::fs::write(outseqn, contents).unwrap();
+}
+
 
 /////////////////
 // Xag -> Eqn //

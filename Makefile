@@ -5,7 +5,7 @@ HE_EVAL = he-eval/build/he-eval
 BENCH ?= i2c
 RULESET ?= default
 
-INEQN = bench/$(BENCH).eqn
+INEQN = bench/lobster/$(BENCH).eqn
 INRULES = rules/$(RULESET)/leave-$(BENCH)
 OPTDIR ?= out/opt/
 
@@ -29,10 +29,9 @@ $(OPTDIR):
 
 # optimize a single file
 opt: $(OPTDIR) cktconv eggtest $(INEQN) $(INRULES)
-	@$(CKTCONV) convert-eqn $(INEQN) out/$(BENCH).sexpr
+	@$(CKTCONV) convert-s-eqn $(INEQN) out/$(BENCH).seqn
 	@$(CKTCONV) convert-rules $(INRULES) out/$(BENCH).rules
-	@$(EGGTEST) out/$(BENCH).sexpr out/$(BENCH).rules > out/$(BENCH)-opt.sexpr
-	@$(CKTCONV) convert-sexpr out/$(BENCH)-opt.sexpr $(OPTDIR)/$(BENCH).eqn
+	@$(EGGTEST) mc out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
 eval: $(OPTDIR)/$(BENCH).eqn he-eval

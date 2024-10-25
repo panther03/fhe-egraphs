@@ -34,6 +34,12 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
+    ConvertSEqn {
+        /// Input file to operate on
+        infile: PathBuf,
+        /// Output file
+        outfile: PathBuf,
+    },
     ConvertSexpr {
         /// Input file to operate on
         infile: PathBuf,
@@ -56,6 +62,9 @@ fn main() {
         }
         Commands::ConvertEqn { outnode, infile, outfile } => {
             eqn::convert_eqn(infile, outfile, outnode.as_deref());
+        }
+        Commands::ConvertSEqn { infile, outfile } => {
+            eqn::convert_seqn(infile, outfile );
         }
         Commands::Stats { infile } => { stats::file_stats(infile); },
         Commands::ConvertSexpr { infile, outfile } => {
