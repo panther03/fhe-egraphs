@@ -47,6 +47,7 @@ add_executable(he-eval
     main.cpp
     eqn_driver.cpp
     circuit.cpp
+    regalloc.cpp
 
     ${FLEX_eqn_lexer_OUTPUTS}
     ${BISON_eqn_parser_OUTPUTS}

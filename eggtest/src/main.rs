@@ -246,25 +246,23 @@ where
                 _ => {}
             }
             if let Some(children) = children {
-                if !already_seen {
+                if let Some(md) = md { 
+                    for child_node in children {
+                        // on the critical path
+                        let child_md = extractor.find_best_cost(*child_node).depth;
+                        let is_critical = (is_and && child_md == md - 1) || (!is_and && child_md == md);
+                        if is_critical || (eclass_seen.get(child_node).is_none() && !already_seen) {
+                            todo_nodes.push(*child_node);
+                            if is_critical { critical_path.insert(*child_node, child_md);} 
+                            if !already_seen { new_children += 1;}
+                        }
+                    }
+                } else if !already_seen {
                     for child_node in children {
                         if eclass_seen.get(child_node).is_none() {
                             todo_nodes.push(*child_node);
                             new_children += 1;
                         }
-                    }
-                }
-                if let Some(md) = md { 
-                    for child_node in children {
-                        // on the critical path
-                        let child_md = extractor.find_best_cost(*child_node).depth;
-                       // print!("p_md = {}; c = {} ({})", md, child_md, child_node);
-                        if (is_and && child_md == md - 1) || (!is_and && child_md == md) {
-                            todo_nodes.push(*child_node);
-                            critical_path.insert(*child_node, child_md);
-                            //print!(" yep ");
-                        }
-                        //print!("\n");
                     }
                 }
             }
