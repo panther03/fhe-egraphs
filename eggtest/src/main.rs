@@ -1,5 +1,6 @@
 use egg::{rewrite as rw, *};
 use std::cmp::Ordering;
+use std::fmt::Display;
 use std::{collections::HashMap, str::FromStr};
 use std::time::Duration;
 
@@ -133,12 +134,16 @@ impl std::ops::Add<DepthArea> for DepthArea {
 }
 impl PartialEq for DepthArea {
     fn eq(&self, other: &DepthArea) -> bool {
-        self.cost().eq(&other.cost())
+        self.depth == other.depth && self.area == other.area
     }
 }
 impl PartialOrd for DepthArea {
     fn partial_cmp(&self, other: &DepthArea) -> Option<Ordering> {
-        self.cost().partial_cmp(&other.cost())
+        if self.depth == other.depth {
+            self.area.partial_cmp(&other.area)
+        } else {
+            self.depth.partial_cmp(&other.depth)
+        }
     }
 }
 pub struct MixedCost;
@@ -157,13 +162,12 @@ impl egg::CostFunction<Prop> for MixedCost {
     }
 }
 
-fn greedy_dag_extract<'a, CF, N>(
-    extractor: &'a Extractor<'a, CF, Prop, N>,
+fn dag_md_traversal<'a, N>(
+    extractor: &'a Extractor<'a, MixedCost, Prop, N>,
     outnodes: &str,
     outnode_ids: &Vec<Id>,
-) -> String
+) -> (HashMap<Id,usize>,String)
 where
-    CF: CostFunction<Prop>,
     N: Analysis<Prop>,
 {
     // temporary network to hold nodes whose children have not been visited yet
@@ -177,55 +181,60 @@ where
     let mut todo_nodes: Vec<Id> = Vec::new();
     // if completing this node also means the parent is done
     let mut todo_finishes: Vec<bool> = Vec::new();
+    // critical path
+    // map eclass id -> MD
+    // not in map -> not in a critical path
+    let mut critical_path: HashMap<Id,usize> = HashMap::new();
 
+    let mut ckt_md = 0;
     for o_id in outnode_ids {
         todo_nodes.push(*o_id);
         todo_finishes.push(false);
+        let md = extractor.find_best_cost(*o_id).depth;
+        if md > ckt_md {
+            ckt_md = md;
+        }
+    }
+    // add the bases to the critical path
+    for o_id in outnode_ids {
+        let md = extractor.find_best_cost(*o_id).depth;
+        if md == ckt_md {
+            critical_path.insert(*o_id, md);
+        }
     }
 
     while !todo_nodes.is_empty() {
         let eclass = todo_nodes.pop().unwrap();
+        let md = critical_path.get(&eclass).cloned();
         let mut netd = format!("n{} = ", eclass);
 
         // number of children this node introduces
         // may not be fixed if the eclasses have already been visited
         let mut new_children = 0;
-        let already_added = eclass_seen.get(&eclass).is_some();
-        if !already_added {
+        let mut is_and = false;
+        let already_seen = eclass_seen.get(&eclass).is_some();
+        let already_complete = already_seen && md.is_some();
+        if !already_complete {
             let enode = extractor.find_best_node(eclass);
             eclass_seen.insert(eclass, eclass);
+            let mut children: Option<&[Id]> = None;
             match enode {
-                Prop::And([a, b]) => {
+                Prop::And(and_children) => {
+                    let a = and_children[0];
+                    let b = and_children[1];
                     netd.push_str(format!("n{} * n{};", a, b).as_str());
-
-                    if eclass_seen.get(&a).is_none() {
-                        todo_nodes.push(*a);
-                        new_children += 1;
-                    }
-                    if eclass_seen.get(&b).is_none() {
-                        todo_nodes.push(*b);
-                        new_children += 1;
-                    }
+                    children = Some(and_children.as_slice());
+                    is_and = true;
                 }
-                Prop::Xor([a, b]) => {
+                Prop::Xor(xor_children) => {
+                    let a = xor_children[0];
+                    let b = xor_children[1];
                     netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
-
-                    if eclass_seen.get(&a).is_none() {
-                        todo_nodes.push(*a);
-                        new_children += 1;
-                    }
-                    if eclass_seen.get(&b).is_none() {
-                        todo_nodes.push(*b);
-                        new_children += 1;
-                    }
+                    children = Some(xor_children.as_slice());
                 }
                 Prop::Not(a) => {
                     netd.push_str(format!("!n{};", a).as_str());
-
-                    if eclass_seen.get(&a).is_none() {
-                        todo_nodes.push(*a);
-                        new_children += 1;
-                    }
+                    children = Some(a.as_slice());
                 }
                 Prop::Symbol(s) => {
                     netd.push_str(s.as_str());
@@ -236,12 +245,35 @@ where
                 }
                 _ => {}
             }
+            if let Some(children) = children {
+                if !already_seen {
+                    for child_node in children {
+                        if eclass_seen.get(child_node).is_none() {
+                            todo_nodes.push(*child_node);
+                            new_children += 1;
+                        }
+                    }
+                }
+                if let Some(md) = md { 
+                    for child_node in children {
+                        // on the critical path
+                        let child_md = extractor.find_best_cost(*child_node).depth;
+                       // print!("p_md = {}; c = {} ({})", md, child_md, child_node);
+                        if (is_and && child_md == md - 1) || (!is_and && child_md == md) {
+                            todo_nodes.push(*child_node);
+                            critical_path.insert(*child_node, child_md);
+                            //print!(" yep ");
+                        }
+                        //print!("\n");
+                    }
+                }
+            }
         }
         // "leaf" node
         // either an actual leaf or all of its children were visited already
         // or the node itself was already visited
         if new_children == 0 {
-            if !already_added {
+            if !already_seen {
                 real_network.push(netd);
             }
             while let Some(is_finish_v) = todo_finishes.pop() {
@@ -265,14 +297,16 @@ where
     }
     assert!(todo_finishes.is_empty());
 
+    println!("Critical path: {}% of ckt", (critical_path.len() as f64)/(eclass_seen.len() as f64) * 100.);
+
     for (o_id, o_name) in outnode_ids.iter().zip(outnodes.split(" ")) {
         real_network.push(format!("{} = n{};", o_name, o_id));
     }
 
-    real_network.join("\n")
+    (critical_path, real_network.join("\n"))
 }
 
-fn extract2(expr: RecExpr<Prop>, outnodes: &str, outnode_ids: &Vec<Id>) -> String {
+fn recexpr_traversal(expr: RecExpr<Prop>, outnodes: &str, outnode_ids: &Vec<Id>) -> String {
     let mut network: Vec<String> = Vec::new();
 
     for (id, p) in expr.as_ref().iter().enumerate() {
@@ -323,6 +357,35 @@ impl FromStr for ExtractMode {
     }
 }
 
+pub fn save_egraph_json<L, A>(egraph: &EGraph<L, A>, root_eclasses: &Vec<Id>, path: impl AsRef<std::path::Path>) ->  std::io::Result<()>
+where
+    L: Language + Display,
+    A: Analysis<L>,
+{
+    use egraph_serialize::*;
+    let mut out = EGraph::default();
+    for class in egraph.classes() {
+        for (i, node) in class.nodes.iter().enumerate() {
+            out.add_node(
+                format!("{}.{}", class.id, i),
+                Node {
+                    op: node.to_string(),
+                    children: node
+                        .children()
+                        .iter()
+                        .map(|id| NodeId::from(format!("{}.0", id)))
+                        .collect(),
+                    eclass: ClassId::from(format!("{}", class.id)),
+                    cost: Cost::new(1.0).unwrap(),
+                    subsumed: false
+                },
+            )
+        }
+    }
+    out.root_eclasses = root_eclasses.iter().map(|x| x.to_string().into()).collect();
+    out.to_json_file(path)
+}
+
 fn main() {
     env_logger::init();
     let mode: ExtractMode = std::env::args()
@@ -332,6 +395,7 @@ fn main() {
         .expect("Invalid mode!");
     let start_expr_path = std::env::args().nth(2).expect("No input expr file given!");
     let rules_path = std::env::args().nth(3).expect("No input rules file given!");
+    let output_eqn_path = std::env::args().nth(4).expect("No output path given!");
 
     let rules_string = std::fs::read_to_string(rules_path).unwrap();
     let rules = process_rules(&rules_string);
@@ -346,34 +410,42 @@ fn main() {
     let runner = Runner::default()
         .with_egraph(start_egraph)
         .with_time_limit(Duration::from_secs(30))
-        .with_node_limit(100000000)
+        .with_node_limit(1000000)
         .run(rules.iter());
-    dbg!("extract {}", &start_expr_path);
+    println!("saturated");
 
+    
     let mut outnode_ids: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
         let id = ckt_node_to_eclass
             .get(outnode)
             .unwrap_or_else(|| panic!("no eclass matching output net {}", outnode));
-        outnode_ids.push(*id);
+        outnode_ids.push(runner.egraph.find(*id));
+    }
+
+    for (k,_) in std::env::vars() {
+        if k == "EGG_SERIALIZE" {
+            save_egraph_json(&runner.egraph, &outnode_ids,"egraph.json").unwrap();
+            break;
+        }
     }
 
     let network = match mode {
         ExtractMode::MD => {
-            let extractor = Extractor::new(&runner.egraph, MultComplexity);
-            greedy_dag_extract(&extractor, outnodes, &outnode_ids)
+            let extractor = Extractor::new(&runner.egraph, MixedCost);
+            dag_md_traversal(&extractor, outnodes, &outnode_ids).1
         }
         ExtractMode::MC => {
-            let mut extractor = LpExtractor::new(&runner.egraph, AstSize);
-            extractor.timeout(100000.0); // way too much time
+            let mut extractor = LpExtractor::new(&runner.egraph, MultComplexity);
+            extractor.timeout(100.0); // way too much time
             let (exp, outnode_ids) = extractor.solve_multiple(outnode_ids.as_slice());
-            extract2(exp, outnodes, &outnode_ids)
+            recexpr_traversal(exp, outnodes, &outnode_ids)
         }
     };
-
-    println!(
+    println!("extracted");
+    // output_eqn_path
+    std::fs::write(output_eqn_path, format!(
         "INORDER = {};\nOUTORDER = {};\n{}",
         innodes, outnodes, network
-    );
-    dbg!("write {}", &start_expr_path);
+    )).unwrap();
 }

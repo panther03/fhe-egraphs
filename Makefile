@@ -31,7 +31,7 @@ $(OPTDIR):
 opt: $(OPTDIR) cktconv eggtest $(INEQN) $(INRULES)
 	@$(CKTCONV) convert-s-eqn $(INEQN) out/$(BENCH).seqn
 	@$(CKTCONV) convert-rules $(INRULES) out/$(BENCH).rules
-	@$(EGGTEST) md out/$(BENCH).seqn out/$(BENCH).rules > $(OPTDIR)/$(BENCH).eqn
+	@$(EGGTEST) mc out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
 eval: $(OPTDIR)/$(BENCH).eqn he-eval
