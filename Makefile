@@ -31,7 +31,8 @@ $(OPTDIR):
 opt: $(OPTDIR) cktconv eggtest $(INEQN) $(INRULES)
 	@$(CKTCONV) convert-s-eqn $(INEQN) out/$(BENCH).seqn
 	@$(CKTCONV) convert-rules $(INRULES) out/$(BENCH).rules
-	@$(EGGTEST) md out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
+	@TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$2 * $$2 / 10000 * 60)}' ); \
+	$(EGGTEST) md $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
 eval: $(OPTDIR)/$(BENCH).eqn he-eval

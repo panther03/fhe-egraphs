@@ -342,12 +342,13 @@ int main( const int argc, const char **argv )
     ////////////////////
     TIC(t);
     ce.evaluate(eqnlist);
-    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(timeNow() - t).count();
-    auto hours = seconds / 3600;
-    auto minutes = (seconds % 3600) / 60;
-    seconds = seconds % 60;
-    if (!quiet) cout << "Evaluated in ";
+    auto seconds_total = std::chrono::duration_cast<std::chrono::seconds>(timeNow() - t).count();
+    auto hours = seconds_total / 3600;
+    auto minutes = (seconds_total % 3600) / 60;
+    auto seconds = seconds_total % 60;
+    cout << args[0] << "," << seconds_total << ",";
     cout << hours << "h " << minutes << "m " << seconds << "s " << endl;    
+    
 
     ///////////////
     // Validate //

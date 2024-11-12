@@ -1,8 +1,14 @@
 use egg::{rewrite as rw, *};
+use egraph_serialize::NodeId;
+use std::borrow::BorrowMut;
 use std::cmp::Ordering;
+use std::f64::INFINITY;
 use std::fmt::Display;
+use std::usize::MAX;
 use std::{collections::HashMap, str::FromStr};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+mod global_greedy_dag;
 
 define_language! {
     enum Prop {
@@ -21,8 +27,17 @@ fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
         // Basic commutativity rules, which Lobster assumes
         rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
         rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+        /*rw!("9"; "(! (* (! (* ?x (! ?y))) (! (* (! ?x) ?y))))" => "(^ ?y ?x)"),
+        rw!("2"; "(* ?x (^ ?y ?z))" => "(^ (* ?x ?y) (* ?x ?z))"),
+        rw!("3"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
+        rw!("4"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
+        rw!("5"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
+        rw!("6"; "(^ ?x (* ?x ?y))" => "(* ?x (! ?y))"),
+        rw!("7"; "(^ ?x (* (! ?x) ?y))" => "(! (* (! ?x) (! ?y)))"),
+        rw!("10"; "(! (* (! ?x) (! ?y)))" => "(^ ?x (* (! ?x) ?y))" ),
+        rw!("8"; "(! (! ?y))" => "?y"),*/
     ];
-    let mut cnt = 2;
+    let mut cnt = rules.len();
     for line in rules_string.lines() {
         let mut split = line.split(";");
         let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
@@ -113,14 +128,17 @@ impl egg::CostFunction<Prop> for MultDepth {
 #[derive(Clone,Debug)]
 struct DepthArea {
     depth: usize,
-    area: usize,
+    area: f64,
 }
 impl DepthArea {
     fn cost(&self) -> usize {
-        self.depth*self.depth * self.area
+        self.depth*self.depth * (self.area as usize)
     }
     fn new() -> Self {
-        DepthArea { depth: 0, area: 0 }
+        DepthArea { depth: 0, area: 0.0 }
+    }
+    fn max() -> Self {
+        DepthArea { depth: MAX, area: INFINITY }
     }
 }
 impl std::ops::Add<DepthArea> for DepthArea {
@@ -146,24 +164,45 @@ impl PartialOrd for DepthArea {
         }
     }
 }
-pub struct MixedCost;
-impl egg::CostFunction<Prop> for MixedCost {
+
+/*
+pub struct MixedCost<'a, L: Language, N: Analysis<L>> {
+    egraph: &'a EGraph<L,N>,
+    enode_opt_lookup: HashMap<egraph_serialize::NodeId, f64>
+}
+impl <'a, N: Analysis<Prop>> egg::CostFunction<Prop> for MixedCost<'a, Prop, N> {
     type Cost = DepthArea;
     fn cost<C>(&mut self, enode: &Prop, mut costs: C) -> Self::Cost
     where
         C: FnMut(Id) -> Self::Cost,
     {
         let mut base = enode.fold(DepthArea::new(), |sum, i| sum + costs(i));
+        // TODO all of this is incredibly stupid
+        let mut enode_m = RecExpr::default();
+        enode_m.add(enode.clone());
+        let eclass = self.egraph.lookup_expr(&enode_m).unwrap();
+        let eclass = &self.egraph[eclass];
+        let mut area_cost: f64 = INFINITY;
+        for (i,n) in eclass.nodes.iter().enumerate() {
+            if n == enode {
+                let node_id_ser = NodeId::from(format!("{}.{}", eclass.id, i));
+                let cost_lookup = self.enode_opt_lookup.get(&node_id_ser);
+                if let Some(cost) = cost_lookup {
+                    area_cost = *cost;
+                    break;
+                }
+            }
+        }
         match enode {
-            Prop::And(_) => {base.area += 1; base.depth += 1;},
+            Prop::And(_) => {base.area = area_cost; base.depth += 1;},
             _ => {}
         };
         base
     }
-}
+}*/
 
 fn dag_md_traversal<'a, N>(
-    extractor: &'a Extractor<'a, MixedCost, Prop, N>,
+    cost_analysis: &MixedCost<'a, Prop, N>,
     outnodes: &str,
     outnode_ids: &Vec<Id>,
 ) -> (HashMap<Id,usize>,String)
@@ -190,14 +229,14 @@ where
     for o_id in outnode_ids {
         todo_nodes.push(*o_id);
         todo_finishes.push(false);
-        let md = extractor.find_best_cost(*o_id).depth;
+        let md = cost_analysis.results.get(o_id).unwrap().0;
         if md > ckt_md {
             ckt_md = md;
         }
     }
     // add the bases to the critical path
     for o_id in outnode_ids {
-        let md = extractor.find_best_cost(*o_id).depth;
+        let md = cost_analysis.results.get(o_id).unwrap().0;
         if md == ckt_md {
             critical_path.insert(*o_id, md);
         }
@@ -215,7 +254,7 @@ where
         let already_seen = eclass_seen.get(&eclass).is_some();
         let already_complete = already_seen && md.is_some();
         if !already_complete {
-            let enode = extractor.find_best_node(eclass);
+            let enode = &cost_analysis.results.get(&eclass).unwrap().1;
             eclass_seen.insert(eclass, eclass);
             let mut children: Option<&[Id]> = None;
             match enode {
@@ -249,7 +288,7 @@ where
                 if let Some(md) = md { 
                     for child_node in children {
                         // on the critical path
-                        let child_md = extractor.find_best_cost(*child_node).depth;
+                        let child_md = cost_analysis.results.get(child_node).unwrap().0;
                         let is_critical = (is_and && child_md == md - 1) || (!is_and && child_md == md);
                         if is_critical || (eclass_seen.get(child_node).is_none() && !already_seen) {
                             todo_nodes.push(*child_node);
@@ -295,7 +334,7 @@ where
     }
     assert!(todo_finishes.is_empty());
 
-    println!("Critical path: {}% of ckt", (critical_path.len() as f64)/(eclass_seen.len() as f64) * 100.);
+    //println!("Critical path: {}% of ckt", (critical_path.len() as f64)/(eclass_seen.len() as f64) * 100.);
 
     for (o_id, o_name) in outnode_ids.iter().zip(outnodes.split(" ")) {
         real_network.push(format!("{} = n{};", o_name, o_id));
@@ -355,7 +394,7 @@ impl FromStr for ExtractMode {
     }
 }
 
-pub fn save_egraph_json<L, A>(egraph: &EGraph<L, A>, root_eclasses: &Vec<Id>, path: impl AsRef<std::path::Path>) ->  std::io::Result<()>
+pub fn serialize_egraph<L, A>(egraph: &EGraph<L, A>, root_eclasses: &Vec<Id>) -> egraph_serialize::EGraph
 where
     L: Language + Display,
     A: Analysis<L>,
@@ -381,19 +420,69 @@ where
         }
     }
     out.root_eclasses = root_eclasses.iter().map(|x| x.to_string().into()).collect();
-    out.to_json_file(path)
+    out
+}
+
+
+pub struct MixedCost<'a, L: Language, N: Analysis<L>> {
+    egraph: &'a EGraph<L,N>,
+    enode_opt_lookup: HashMap<egraph_serialize::NodeId, f64>,
+    results: HashMap<Id, (usize, Prop)>,
+    visited: HashMap<Id,Id>
+}
+impl <'a, N: Analysis<Prop>> MixedCost<'a, Prop, N> {
+    fn select_best_eclass_mixed(&mut self, eclass: Id, depth: usize) -> usize {
+        let mut best_prop: Option<Prop> = None;
+        let mut best_cost: DepthArea = DepthArea::max();
+        let eclass_s = &self.egraph[eclass];
+        if self.visited.get(&eclass).is_some() {
+            // cycle detected, ignore this node
+            return MAX;
+        }
+        self.visited.insert(eclass, eclass);
+        for (i, node) in eclass_s.nodes.iter().enumerate() {
+            let worst_depth:usize = node.children().iter().map(|c| {
+                // filter out cycles, although these shouldn't ei
+                self.results.get(c).map(|x| { x.0}).unwrap_or_else(|| self.select_best_eclass_mixed(*c, depth+1))
+            }).max().unwrap_or(0);
+            if worst_depth == MAX {
+                continue;
+            }
+            let node_id_ser: NodeId = format!("{}.{}", eclass_s.id, i).into();
+            let dag_area = *self.enode_opt_lookup.get(&node_id_ser).unwrap_or(&INFINITY);
+            let md_cost = match node {
+                Prop::And(_) => 1,
+                _ => 0
+            };
+            let node_cost = DepthArea {
+                area: dag_area,
+                depth: worst_depth + md_cost
+            };
+            if node_cost < best_cost {
+                best_cost = node_cost;
+                best_prop = Some(node.clone());
+            }
+        }
+        self.results.insert(eclass, (best_cost.depth, best_prop.unwrap()));
+        return best_cost.depth;
+    }
 }
 
 fn main() {
     env_logger::init();
-    let mode: ExtractMode = std::env::args()
-        .nth(1)
+    let mut args = std::env::args();
+    args.next();
+    let mode: ExtractMode = args
+        .next()
         .expect("No mode supplied!")
         .parse()
         .expect("Invalid mode!");
-    let start_expr_path = std::env::args().nth(2).expect("No input expr file given!");
-    let rules_path = std::env::args().nth(3).expect("No input rules file given!");
-    let output_eqn_path = std::env::args().nth(4).expect("No output path given!");
+    let timeout_seconds = args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").max(60);
+    let start_expr_path = args.next().expect("No input expr file given!");
+    let rules_path = args.next().expect("No input rules file given!");
+    let output_eqn_path = args.next().expect("No output path given!");
+
+    let start_time = Instant::now();
 
     let rules_string = std::fs::read_to_string(rules_path).unwrap();
     let rules = process_rules(&rules_string);
@@ -407,12 +496,13 @@ fn main() {
 
     let runner = Runner::default()
         .with_egraph(start_egraph)
-        .with_time_limit(Duration::from_secs(30))
-        .with_node_limit(1000000)
+        .with_time_limit(Duration::from_secs(timeout_seconds))
+        .with_node_limit(250000000)
+        .with_iter_limit(10000000)
         .run(rules.iter());
-    println!("saturated");
+    let sat_time = Instant::now() - start_time;
+    //println!("saturated {}", runner.egraph.classes().len());
 
-    
     let mut outnode_ids: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
         let id = ckt_node_to_eclass
@@ -421,26 +511,39 @@ fn main() {
         outnode_ids.push(runner.egraph.find(*id));
     }
 
+    let egraph_ser = serialize_egraph(&runner.egraph, &outnode_ids,);
+
     for (k,_) in std::env::vars() {
         if k == "EGG_SERIALIZE" {
-            save_egraph_json(&runner.egraph, &outnode_ids,"egraph.json").unwrap();
+            egraph_ser.to_json_file("egraph.json").unwrap();
             break;
         }
     }
 
     let network = match mode {
         ExtractMode::MD => {
-            let extractor = Extractor::new(&runner.egraph, MixedCost);
-            dag_md_traversal(&extractor, outnodes, &outnode_ids).1
+            let mc_optimal = global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses);
+            let mut mixedcost = MixedCost {
+                egraph: &runner.egraph,
+                enode_opt_lookup: mc_optimal,
+                results: HashMap::new(),
+                visited: HashMap::new()
+            };
+            for outnode_id in outnode_ids.iter() {
+                mixedcost.select_best_eclass_mixed(*outnode_id, 0);
+            }
+            //let extractor = Extractor::new(&runner.egraph, mixedcost);
+            dag_md_traversal(&mixedcost, outnodes, &outnode_ids).1
         }
         ExtractMode::MC => {
             let mut extractor = LpExtractor::new(&runner.egraph, MultComplexity);
-            extractor.timeout(100.0); // way too much time
+            extractor.timeout(300.0); // way too much time
             let (exp, outnode_ids) = extractor.solve_multiple(outnode_ids.as_slice());
             recexpr_traversal(exp, outnodes, &outnode_ids)
         }
     };
-    println!("extracted");
+    let total_time = Instant::now() - start_time;
+    println!("{},{},{}", start_expr_path, total_time.as_secs(), sat_time.as_secs());
     // output_eqn_path
     std::fs::write(output_eqn_path, format!(
         "INORDER = {};\nOUTORDER = {};\n{}",

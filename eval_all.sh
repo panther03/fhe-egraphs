@@ -7,10 +7,8 @@ if [ $# -ne 1 ]
 fi
 
 # Folder to evaluate
-BENCH_FOLDER=$1
+export BENCH_FOLDER=$1
 
 CASES=$(for c in $(ls "${BENCH_FOLDER}"/); do echo "BENCH=$(basename $c .eqn)"; done)
 
-for THECASE in $CASES;
-    do make eval OPTDIR=$BENCH_FOLDER $THECASE;
-done
+parallel -j 8 ./launch_eval.sh  ::: $CASES 

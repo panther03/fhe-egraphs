@@ -26,6 +26,14 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
+    ConvertMcRules {
+        /// File containing lhs xag => truth table
+        lhses: PathBuf,
+        /// File containing truth table => rhs xag
+        rhses: PathBuf,
+        /// Output file
+        outfile: PathBuf,
+    },
     ConvertEqn {
         #[arg(short, long, value_name = "NODE")]
         outnode: Option<String>,
@@ -59,6 +67,9 @@ fn main() {
     match args.command {
         Commands::ConvertRules { rulecnt, infile, outfile} => {
             rules::convert_rules(infile, outfile, rulecnt.map_or(-1, |r| (r as i32)));
+        }
+        Commands::ConvertMcRules { lhses, rhses, outfile} => {
+            rules::convert_cut_rewriting_rules(lhses, rhses, outfile);
         }
         Commands::ConvertEqn { outnode, infile, outfile } => {
             eqn::convert_eqn(infile, outfile, outnode.as_deref());

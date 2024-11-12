@@ -9,9 +9,8 @@ fi
 # Ruleset
 RULESET=$1
 
-CASES=$(for c in $(ls bench/missed); do echo "BENCH=$(basename $c .eqn)"; done)
-
-# 30 mins
-export TIMEOUT=$((30*60))
+CASES=$(for c in $(ls bench/lobster); do echo "BENCH=$(basename $c .eqn)"; done)
+# not the real timeout
+export TIMEOUT=$((600000))
 export RULESET=$RULESET
-parallel ./launch_opt.sh  ::: $CASES 
+parallel -j 8 ./launch_opt.sh  ::: $CASES 
