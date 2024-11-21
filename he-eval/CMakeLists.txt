@@ -33,8 +33,8 @@ BISON_TARGET(
     eqn_parser
     eqn_parser.yy
     ${CMAKE_CURRENT_BINARY_DIR}/eqn_parser.tab.cc
+#    COMPILE_FLAGS -Wcounterexamples
     )
-## COMPILE_FLAGS -Wcounterexamples
 
 FLEX_TARGET(
     eqn_lexer

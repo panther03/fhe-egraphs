@@ -1,14 +1,17 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]
+if [ $# -ne 2 ]
   then
-    echo "Please supply bench folder as 1st argument"
+    echo "Usage: $0 <OPTDIR> <BENCHSET>"
     exit 1
 fi
 
 # Folder to evaluate
-BENCH_FOLDER=$1
+OPTDIR=$1
+# BENCHSET to check equivalence against
+BENCHSET=$2
 
-CASES=$(for c in $(ls "${BENCH_FOLDER}"/); do echo "BENCH=$(basename $c .eqn)"; done)
 
-parallel make stats verify OPTDIR=$BENCH_FOLDER ::: $CASES
+CASES=$(for c in $(ls "${OPTDIR}"/); do echo "BENCH=$(basename $c .eqn)"; done)
+
+parallel make stats verify OPTDIR=$OPTDIR BENCHSET=$BENCHSET ::: $CASES

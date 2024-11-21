@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::path::PathBuf;
 
 use crate::parse::{Token, Xag};
@@ -61,7 +60,7 @@ fn postfix_to_prefix_rule(postfix: Vec<Token>) -> String {
 
 pub fn convert_rules(inrules: PathBuf, outrules: PathBuf, rulecnt: i32) {
     // open inrules and convert it to a vector of lines
-    let lines = std::fs::read_to_string(inrules).unwrap();
+    let lines = std::fs::read_to_string(&inrules).expect(format!("cannot open rules file: {:#?}", &inrules).as_str());
 
     let mut rules: String = String::new();
     let mut rule: Rule = Rule {
@@ -147,13 +146,13 @@ fn constant_fold(xag: Xag, maxpicount: u32) -> Xag {
         }
         parse::XagOp::Ident(s) => {
             let pi_n = (s[2..]).parse::<u32>();
-            //if pi_n.is_ok() && pi_n.unwrap() < (6 - maxpicount) {
-            //    let mut x = xag;
-            //    x.op = Box::new(parse::XagOp::Lit(false));
-            //    x
-            //} else {
-                xag
-            //}
+            if pi_n.is_ok() && pi_n.unwrap() < (6 - maxpicount) {
+                let mut x = xag;
+                x.op = Box::new(parse::XagOp::Lit(false));
+                x
+            } else {
+              xag
+            }
         }
         _ => xag,
     };

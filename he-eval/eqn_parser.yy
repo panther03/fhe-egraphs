@@ -64,6 +64,9 @@
 %type<Gate*> gate
 %type<std::tuple<std::string, Gate*>> eqn
 
+%right TK_AND
+%right TK_OR
+
 %locations
 
 %%
@@ -114,16 +117,34 @@ gateinp
 
 gate
 	// expanded XOR rule
-	: TK_LPAREN gateinp TK_AND gateinp TK_RPAREN TK_OR TK_LPAREN gateinp TK_AND gateinp TK_RPAREN 
+	: TK_LPAREN TK_NOT TK_VAR TK_AND TK_VAR TK_RPAREN TK_OR TK_LPAREN TK_VAR TK_AND TK_NOT TK_VAR TK_RPAREN 
 		{
 		Gate *g = new Gate();
-		GateInp *l = $2;
-		GateInp *r = $4;
-		
-		GateInp *l2 = $8;
-		GateInp *r2 = $10;
 
-		l->polarity = !l->polarity;
+		GateInp *l = new GateInp();
+		l->type = GateInp::InpType::Var;
+		l->name = $3;
+		GateInp *r = new GateInp();
+		r->type = GateInp::InpType::Var;
+		r->name = $5;
+
+		g->op = Gate::Op::XOR;
+		g->left = l;
+		g->right = r;
+
+		$$ = g;
+		}
+	| TK_LPAREN TK_VAR TK_AND TK_NOT TK_VAR TK_RPAREN TK_OR TK_LPAREN TK_NOT TK_VAR TK_AND TK_VAR TK_RPAREN 
+		{
+		Gate *g = new Gate();
+
+		GateInp *l = new GateInp();
+		l->type = GateInp::InpType::Var;
+		l->name = $2;
+		GateInp *r = new GateInp();
+		r->type = GateInp::InpType::Var;
+		r->name = $5;
+
 		g->op = Gate::Op::XOR;
 		g->left = l;
 		g->right = r;
@@ -134,13 +155,20 @@ gate
 		{
 		$$ = $2;
 		}
-	| gateinp TK_AND gateinp
+	| TK_VAR TK_AND TK_VAR
 		{
 		Gate *g = new Gate();
 		g->op = Gate::Op::AND;
+
+		GateInp *l = new GateInp();
+		l->type = GateInp::InpType::Var;
+		l->name = $1;
+		GateInp *r = new GateInp();
+		r->type = GateInp::InpType::Var;
+		r->name = $3;
 		
-		g->left = $1;
-		g->right = $3;
+		g->left = l;
+		g->right = r;
 		
 		$$ = g;
 		}	
@@ -172,6 +200,7 @@ gate
 
 		$$ = g;
 		}
+
 %%
 
 

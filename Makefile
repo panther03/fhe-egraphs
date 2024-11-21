@@ -4,8 +4,9 @@ HE_EVAL = he-eval/build/he-eval
 
 BENCH ?= i2c
 RULESET ?= default
+BENCHSET ?= lobster
 
-INEQN = bench/lobster/$(BENCH).eqn
+INEQN = bench/$(BENCHSET)/$(BENCH).eqn
 INRULES = rules/$(RULESET)/leave-$(BENCH)
 OPTDIR ?= out/opt/
 
@@ -28,10 +29,14 @@ $(OPTDIR):
 	@mkdir -p $(OPTDIR)
 
 # optimize a single file
-opt: $(OPTDIR) cktconv eggtest $(INEQN) $(INRULES)
-	@$(CKTCONV) convert-s-eqn $(INEQN) out/$(BENCH).seqn
-	@$(CKTCONV) convert-rules $(INRULES) out/$(BENCH).rules
-	@TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$2 * $$2 / 10000 * 60)}' ); \
+opt: $(OPTDIR) cktconv eggtest $(INEQN)
+	@$(CKTCONV) eqn2seqn $(INEQN) out/$(BENCH).seqn
+	@if [ -f "$(INRULES)" ]; then \
+		$(CKTCONV) lobster2egg-rules $(INRULES) out/$(BENCH).rules; \
+	else \
+		$(CKTCONV) lobster2egg-rules rules/$(RULESET)/all_cases out/$(BENCH).rules; \
+	fi
+	@TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$1 * $$2 / 10000 * 60)}' ); \
 	$(EGGTEST) md $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
@@ -46,4 +51,4 @@ stats: $(OPTDIR)/$(BENCH).eqn
 
 # verify against ABC
 verify: $(OPTDIR)/$(BENCH).eqn
-	@./run_abc.sh $(OPTDIR)/$(BENCH).eqn
+	@./run_abc.sh $(INEQN) $(OPTDIR)/$(BENCH).eqn

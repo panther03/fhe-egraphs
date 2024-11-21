@@ -3,10 +3,9 @@ use std::path::PathBuf;
 
 mod parse;
 mod eqn;
+mod dot;
 mod rules;
 mod stats;
-
-use parse::Token;
 
 /// Simple program to greet a person
 #[derive(Parser)]
@@ -18,7 +17,8 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
-    ConvertRules {
+    #[command(name="lobster2egg-rules")]
+    Lobster2EggRules {
         #[arg(short, long, value_name = "CNT")]
         rulecnt: Option<u32>,
         /// Input file to operate on
@@ -26,7 +26,8 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
-    ConvertMcRules {
+    #[command(name="cut-rewrite2egg-rules")]
+    CutRewrite2EggRules {
         /// File containing lhs xag => truth table
         lhses: PathBuf,
         /// File containing truth table => rhs xag
@@ -34,7 +35,8 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
-    ConvertEqn {
+    #[command(name="eqn2sexpr")]
+    Eqn2Sexpr {
         #[arg(short, long, value_name = "NODE")]
         outnode: Option<String>,
         /// Input file to operate on
@@ -42,17 +44,24 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
-    ConvertSEqn {
+    #[command(name="eqn2seqn")]
+    Eqn2Seqn {
         /// Input file to operate on
         infile: PathBuf,
         /// Output file
         outfile: PathBuf,
     },
-    ConvertSexpr {
+    #[command(name="sexpr2eqn")]
+    Sexpr2Eqn {
         /// Input file to operate on
         infile: PathBuf,
         /// Output file
         outfile: PathBuf,
+    },
+    #[command(name="egraph2dot")]
+    Egraph2Dot {
+        infile: PathBuf,
+        outfile: PathBuf
     },
     Stats {
         /// Input file to operate on
@@ -65,21 +74,24 @@ fn main() {
     let args = Args::parse();
 
     match args.command {
-        Commands::ConvertRules { rulecnt, infile, outfile} => {
+        Commands::Lobster2EggRules { rulecnt, infile, outfile} => {
             rules::convert_rules(infile, outfile, rulecnt.map_or(-1, |r| (r as i32)));
         }
-        Commands::ConvertMcRules { lhses, rhses, outfile} => {
+        Commands::CutRewrite2EggRules { lhses, rhses, outfile} => {
             rules::convert_cut_rewriting_rules(lhses, rhses, outfile);
         }
-        Commands::ConvertEqn { outnode, infile, outfile } => {
-            eqn::convert_eqn(infile, outfile, outnode.as_deref());
+        Commands::Eqn2Sexpr { outnode, infile, outfile } => {
+            eqn::eqn2sexpr(infile, outfile, outnode.as_deref());
         }
-        Commands::ConvertSEqn { infile, outfile } => {
-            eqn::convert_seqn(infile, outfile );
+        Commands::Eqn2Seqn { infile, outfile } => {
+            eqn::eqn2seqn(infile, outfile );
         }
         Commands::Stats { infile } => { stats::file_stats(infile); },
-        Commands::ConvertSexpr { infile, outfile } => {
-            eqn::convert_sexpr(infile, outfile);
+        Commands::Sexpr2Eqn { infile, outfile } => {
+            eqn::sexpr2eqn(infile, outfile);
+        },
+        Commands::Egraph2Dot { infile, outfile } => {
+            dot::egraph2dot(infile, outfile).unwrap();
         }
     }
 }

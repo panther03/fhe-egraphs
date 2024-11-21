@@ -26,6 +26,24 @@ pub enum XagOp {
     Lit(bool)
 }
 
+impl Xag {
+    pub fn get_name<'a> (&'a self) -> Option<&'a str> {
+        match self.op.as_ref() {
+            XagOp::Ident(s) => Some(s.as_str()),
+            _ => None // idk
+        }
+    }
+    pub fn leaves_iter(&mut self, leaf_handle: &dyn Fn(&mut String)) {
+        match self.op.as_mut() {
+            XagOp::Concat(ns) => {ns.iter_mut().for_each(|x: &mut Xag| x.leaves_iter(leaf_handle));},
+            XagOp::Xor(n1, n2) => { n1.leaves_iter(leaf_handle); n2.leaves_iter(leaf_handle); },
+            XagOp::And(n1, n2) => { n1.leaves_iter(leaf_handle); n2.leaves_iter(leaf_handle); },
+            XagOp::Ident(i) => { leaf_handle(i); },
+            _ => {},
+        }
+    }
+}
+
 
 pub fn lex(source: &str) -> Vec<Token> {
     let source_surround = format!("({})", source);

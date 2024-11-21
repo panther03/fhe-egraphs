@@ -7,5 +7,6 @@
         "string": "cpp",
         "tuple": "cpp",
         "sstream": "cpp"
-    }
+    },
+    "cSpell.enabled": false
 }

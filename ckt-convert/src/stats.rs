@@ -1,6 +1,7 @@
 use crate::parse::{Xag,XagOp};
 use crate::{eqn, parse};
 use std::collections::HashMap;
+use std::ops::Add;
 use std::{cmp::max, path::PathBuf};
 
 fn tree_mult_depth(x: &Xag, leaf_handle: &dyn Fn(&str) -> u32) -> u32 {
@@ -13,12 +14,40 @@ fn tree_mult_depth(x: &Xag, leaf_handle: &dyn Fn(&str) -> u32) -> u32 {
     }
 }
 
-fn tree_mult_complexity(x: &Xag) -> u32 {
+struct XagCount {
+    mc: u32,
+    xc: u32
+} 
+
+impl XagCount {
+    fn zero() -> Self {
+        XagCount {
+            mc: 0,
+            xc: 0
+        }
+    }
+}
+
+impl Add<XagCount> for XagCount {
+    type Output = XagCount;
+    fn add(self, rhs: XagCount) -> Self::Output {
+        XagCount {
+            mc: self.mc + rhs.mc,
+            xc: self.xc + rhs.xc
+        }
+    }
+}
+
+fn tree_complexity(x: &Xag) -> XagCount {
     match x.op.as_ref() {
-        XagOp::Concat(ns) => ns.iter().map(|x: &Xag| tree_mult_complexity(x)).sum(),
-        XagOp::Xor(n1, n2) => tree_mult_complexity(n1) + tree_mult_complexity(n2),
-        XagOp::And(n1, n2) => 1 + tree_mult_complexity(n1) + tree_mult_complexity(n2),
-        _ => 0,
+        XagOp::Concat(ns) => ns.iter().map(|x: &Xag| tree_complexity(x)).fold(XagCount::zero(), |acc, x| acc + x),
+        XagOp::Xor(n1, n2) => {
+            tree_complexity(n1) + tree_complexity(n2) + XagCount { mc: 0, xc: 1 }
+        }
+        XagOp::And(n1, n2) => {
+            tree_complexity(n1) + tree_complexity(n2) + XagCount { mc: 1, xc: 0 }
+        } 
+        _ => XagCount::zero(),
     }
 }
 
@@ -30,7 +59,8 @@ fn sexpr_stats(infile: PathBuf) {
     sexpr_lines.next();
     let sexpr = parse::lex(sexpr_lines.next().unwrap());
     let xag = parse::sexpr_to_xag(sexpr);
-    print!("{},{}", tree_mult_complexity(&xag), tree_mult_depth(&xag, &|_| {0}));
+    let counts = tree_complexity(&xag);
+    print!("{},{},{}", tree_mult_depth(&xag, &|_| {0}), counts.mc, counts.xc);
 }
 
 fn eqn_stats(infile: PathBuf) {
@@ -38,6 +68,7 @@ fn eqn_stats(infile: PathBuf) {
     let eqn = eqn::parse_eqn(&lines);
     let mut depth: HashMap<String,u32> = HashMap::new();
     let mut mc: u32 = 0;
+    let mut xc: u32 = 0;
     let mut md: u32 = 0;
     for net in eqn.lhses {
         let xag = eqn.equations.get(&net).unwrap();
@@ -45,10 +76,12 @@ fn eqn_stats(infile: PathBuf) {
         if x_md > md {
             md = x_md;
         }
-        mc += tree_mult_complexity(&xag);
+        let counts = tree_complexity(&xag);
+        mc += counts.mc;
+        xc += counts.xc;
         depth.insert(net, x_md);
     }
-    print!("{},{}", mc, md);
+    print!("{},{},{}", md, mc, xc);
 }
 
 pub fn file_stats(infile: PathBuf) {

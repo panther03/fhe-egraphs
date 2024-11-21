@@ -158,7 +158,7 @@ pub fn parse_eqn<'a>(ineqn: &'a String) -> Eqn<'a> {
     eqn
 }
 
-pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
+pub fn eqn2sexpr(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     // open inrules and convert it to a vector of lines
     let lines = std::fs::read_to_string(ineqn).unwrap();
     let mut eqn = parse_eqn(&lines);
@@ -186,44 +186,70 @@ pub fn convert_eqn(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     std::fs::write(outsexpr, contents).unwrap();
 }
 
-pub fn expr_to_list(x: &Xag) -> Result<String,()> {
+pub fn expr_to_list(lhs: String, x: &Xag, seen: &mut HashMap<String, ()>) -> Result<String,()> {
     let is_xor: bool = match x.op.as_ref() {
         &parse::XagOp::And(_,_) => false,
         &parse::XagOp::Xor(_,_) => true,
         _ => false// junk
     };
     
+    let mut eqns = String::new();
     match x.op.as_ref() {
+        // this is a disaster
         XagOp::And(n1, n2) | XagOp::Xor(n1, n2) => {
-            if x.inv { return Err(()); }
             let XagOp::Ident(s1) = n1.op.as_ref() else { return Err(()) };
-            if n1.inv || n2.inv { return Err(()); }
+            let s1_n = format!("{}_n", s1);
+            let s1 = if n1.inv { 
+                if seen.get(&s1_n).is_none() {
+                    eqns.push_str(format!("{}=!;{};\n", s1_n, s1).as_str());
+                    seen.insert(s1_n.clone(), ());
+                }
+                &s1_n
+            } else { s1 };
             let XagOp::Ident(s2) = n2.op.as_ref() else { return Err(()) };
-            Ok(format!("{};{};{}", if is_xor {"^"} else {"*"}, s1, s2))
+            let s2_n = format!("{}_n", s2);
+            let s2 = if n2.inv { 
+                if seen.get(&s2_n).is_none() {
+                    eqns.push_str(format!("{}=!;{};\n", s2_n, s2).as_str());
+                    seen.insert(s2_n.clone(), ());
+                }
+                &s2_n
+            } else { s2 };
+            let lhs_n = if x.inv { format!("{}_n", &lhs)} else { lhs.clone() };
+            let mut thing= format!("{}{}={};{};{}\n", eqns, &lhs_n, if is_xor {"^"} else {"*"}, s1, s2);
+            if x.inv {
+                if seen.get(&lhs_n).is_none() {
+                    seen.insert(lhs_n.clone(), ());
+                }
+                thing.push_str(format!("{}=!;{};\n", lhs, lhs_n).as_str());
+            }
+            Ok(thing)
         },
-        XagOp::Lit(b) => Ok(format!("w;{};", b)),
+        XagOp::Lit(b) => Ok(format!("{}=w;{};\n", lhs, b)),
         XagOp::Ident(s) => {
             if x.inv {  
-                Ok(format!("!;{};", s))
+                Ok(format!("{}=!;{};\n", lhs, s))
             } else {
-                Ok(format!("w;{};", s))
+                Ok(format!("{}=w;{};\n", lhs, s))
             }
         },
         XagOp::Concat(_) => Err(())
     }
 }
 
-pub fn convert_seqn(ineqn: PathBuf, outseqn: PathBuf) {
+pub fn eqn2seqn(ineqn: PathBuf, outseqn: PathBuf) {
     let lines = std::fs::read_to_string(ineqn).unwrap();
     let mut eqn = parse_eqn(&lines);
     let mut contents = eqn.innodes.join(" ");
     contents.push('\n');
     contents.push_str(&(eqn.outnodes).join(" "));
+    contents.push('\n');
+    let mut seen: HashMap<String, ()> = HashMap::new();
 
     for lhs in eqn.lhses {
         let rhs = eqn.equations.get(&lhs).unwrap();
-        let rhs = expr_to_list(rhs).unwrap();
-        contents.push_str(format!("\n{}={}", lhs, rhs).as_str());
+        let rhs = expr_to_list(lhs, rhs, &mut seen).unwrap();
+        contents.push_str(rhs.as_str());
     }
 
     std::fs::write(outseqn, contents).unwrap();
@@ -330,7 +356,7 @@ fn xag_to_eqn(xag: Xag, nodecnt: u32, dedup: &mut HashMap<NodeLookup,u32>, eqnou
 }
 
 
-pub fn convert_sexpr(insexpr: PathBuf, outeqn: PathBuf) {
+pub fn sexpr2eqn(insexpr: PathBuf, outeqn: PathBuf) {
     // open inrules and convert it to a vector of lines
     let sexpr = std::fs::read_to_string(insexpr).unwrap();
     let mut sexpr_lines = sexpr.lines();

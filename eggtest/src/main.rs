@@ -25,26 +25,33 @@ define_language! {
 fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
     let mut rules: Vec<Rewrite<Prop, ()>> = vec![
         // Basic commutativity rules, which Lobster assumes
-        rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
-        rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+        //rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
+        //rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+        //rw!("2"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
+        //rw!("3"; "(* (* ?x ?y) ?z)" => "(* ?x (* ?y ?z))"),
+        //rw!("4"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
+        //rw!("5"; "(^ (^ ?x ?y) ?z)" => "(^ ?x (^ ?y ?z))"),
+        //rw!("6"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
+        //rw!("7"; "(* ?x (^ ?y ?z))" => "(^ (* ?x ?y) (* ?x ?z))"),
+        
+        //rw!("5"; "(?y)" => "(! (! ?y))")
         /*rw!("9"; "(! (* (! (* ?x (! ?y))) (! (* (! ?x) ?y))))" => "(^ ?y ?x)"),
-        rw!("2"; "(* ?x (^ ?y ?z))" => "(^ (* ?x ?y) (* ?x ?z))"),
-        rw!("3"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
-        rw!("4"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
+        
+        
         rw!("5"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
         rw!("6"; "(^ ?x (* ?x ?y))" => "(* ?x (! ?y))"),
         rw!("7"; "(^ ?x (* (! ?x) ?y))" => "(! (* (! ?x) (! ?y)))"),
         rw!("10"; "(! (* (! ?x) (! ?y)))" => "(^ ?x (* (! ?x) ?y))" ),
         rw!("8"; "(! (! ?y))" => "?y"),*/
     ];
-    let mut cnt = rules.len();
-    for line in rules_string.lines() {
-        let mut split = line.split(";");
-        let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
-        cnt += 1;
-    }
+    //let mut cnt = rules.len();
+    //for line in rules_string.lines() {
+    //    let mut split = line.split(";");
+    //    let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+    //    let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+    //    rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
+    //    cnt += 1;
+    //}
     rules
 }
 
@@ -58,7 +65,7 @@ fn egraph_from_seqn(innodes: &str, eqns: &str) -> (HashMap<String, Id>, EGraph<P
     }
     ckt_node_to_eclass.insert("true".to_string(), egraph.add(Prop::Bool(true)));
     ckt_node_to_eclass.insert("false".to_string(), egraph.add(Prop::Bool(false)));
-    for eqn in eqns.lines() {
+    for (i,eqn) in eqns.lines().into_iter().enumerate() {
         let mut split = eqn.split("=");
         let lhs = split.next().unwrap();
         let mut rhs = split.next().unwrap().split(";");
