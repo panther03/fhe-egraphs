@@ -25,8 +25,8 @@ define_language! {
 fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
     let mut rules: Vec<Rewrite<Prop, ()>> = vec![
         // Basic commutativity rules, which Lobster assumes
-        //rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
-        //rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+        rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
+        rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
         //rw!("2"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
         //rw!("3"; "(* (* ?x ?y) ?z)" => "(* ?x (* ?y ?z))"),
         //rw!("4"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
@@ -44,14 +44,14 @@ fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
         rw!("10"; "(! (* (! ?x) (! ?y)))" => "(^ ?x (* (! ?x) ?y))" ),
         rw!("8"; "(! (! ?y))" => "?y"),*/
     ];
-    //let mut cnt = rules.len();
-    //for line in rules_string.lines() {
-    //    let mut split = line.split(";");
-    //    let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-    //    let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-    //    rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
-    //    cnt += 1;
-    //}
+    let mut cnt = rules.len();
+    for line in rules_string.lines() {
+        let mut split = line.split(";");
+        let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+        let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+        rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
+        cnt += 1;
+    }
     rules
 }
 
@@ -287,7 +287,7 @@ where
                     netd.push(';');
                 }
                 Prop::Bool(b) => {
-                    netd.push_str(if *b { "true;" } else { "false;" });
+                    netd.push_str(if *b { "1;" } else { "0;" });
                 }
                 _ => {}
             }
@@ -465,6 +465,7 @@ impl <'a, N: Analysis<Prop>> MixedCost<'a, Prop, N> {
                 area: dag_area,
                 depth: worst_depth + md_cost
             };
+            // this makes a big difference in the quality of area results for some reason???
             if node_cost < best_cost {
                 best_cost = node_cost;
                 best_prop = Some(node.clone());
@@ -484,7 +485,8 @@ fn main() {
         .expect("No mode supplied!")
         .parse()
         .expect("Invalid mode!");
-    let timeout_seconds = args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").max(60);
+    args.next();
+    let timeout_seconds = 120;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
     let start_expr_path = args.next().expect("No input expr file given!");
     let rules_path = args.next().expect("No input rules file given!");
     let output_eqn_path = args.next().expect("No output path given!");
@@ -508,7 +510,6 @@ fn main() {
         .with_iter_limit(10000000)
         .run(rules.iter());
     let sat_time = Instant::now() - start_time;
-    //println!("saturated {}", runner.egraph.classes().len());
 
     let mut outnode_ids: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
@@ -550,7 +551,7 @@ fn main() {
         }
     };
     let total_time = Instant::now() - start_time;
-    println!("{},{},{}", start_expr_path, total_time.as_secs(), sat_time.as_secs());
+    println!("{},{},{},{},{}", start_expr_path, total_time.as_secs(), sat_time.as_secs(), runner.egraph.number_of_classes(), runner.egraph.total_number_of_nodes());
     // output_eqn_path
     std::fs::write(output_eqn_path, format!(
         "INORDER = {};\nOUTORDER = {};\n{}",

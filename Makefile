@@ -36,7 +36,11 @@ opt: $(OPTDIR) cktconv eggtest $(INEQN)
 	else \
 		$(CKTCONV) lobster2egg-rules rules/$(RULESET)/all_cases out/$(BENCH).rules; \
 	fi
-	@TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$1 * $$2 / 10000 * 60)}' ); \
+	@if [ "$(BENCHSET)" = "iscas" ]; then \
+		TIMEOUT=60; \
+	else \
+		TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$1 * $$2 / 10000 * 60)}' ); \
+	fi; \
 	$(EGGTEST) md $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
