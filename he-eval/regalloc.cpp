@@ -2,11 +2,17 @@
 
 using namespace std;
 
-RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<tuple<string, Gate*>> &eqnlist, bool quiet) {
+RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<string> &outputlist, vector<tuple<string, Gate*>> &eqnlist, bool quiet) {
     for (auto &input: inputlist) {
         regmap.insert(make_pair(input, id_counter++));
     }
     int inp_id_cnt = id_counter;
+
+    unordered_set<string> out_nets;
+    unordered_set<int> out_ids;
+    for (auto &output: outputlist) {
+        out_nets.insert(output);
+    }
 
     // 1st pass: starting intervals
     for (auto &eqn : eqnlist) {
@@ -14,6 +20,9 @@ RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<tuple<st
         int net_id = id_counter++;
         //cout << net_id << " goes to " << net << endl;
         regmap.insert(make_pair(net, net_id));
+        if (out_nets.find(net) != out_nets.end()) {
+            out_ids.insert(net_id);
+        }
     }
 
     interval_ends = new int[id_counter];
@@ -63,7 +72,7 @@ RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<tuple<st
             assert(child < id_counter);
             assert(regmap.find(net)->second == id);
             // Have not found the end yet
-            if (interval_ends[child] == id_counter) {
+            if (interval_ends[child] == id_counter && out_ids.find(child) == out_ids.end()) {
                 interval_ends[child] = id;
             }
         }
@@ -115,8 +124,9 @@ RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<tuple<st
     if (!quiet) cout << "(Colors: " << colors << ") ";
 
     return;
-    // validation
+    
     /*
+    // validation
     unordered_set<int> defined_regs;
     for (int i = 0; i < inp_id_cnt; i++) {
         defined_regs.insert(i);

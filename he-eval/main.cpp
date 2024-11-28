@@ -271,7 +271,7 @@ int main( const int argc, const char **argv )
     // Register Allocation //
     ////////////////////////
     if (!quiet) MEASURE_START("Allocate registers...")
-    RegisterAllocator ra (inputlist, eqnlist, quiet);
+    RegisterAllocator ra (inputlist, outputlist, eqnlist, quiet);
     if (!quiet) MEASURE_END
     //exit(0);
 
