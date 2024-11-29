@@ -1,4 +1,4 @@
-use std::iter;
+use std::{iter, usize::MAX};
 use std::collections::HashMap;
 
 use ordered_float::NotNan;
@@ -197,8 +197,12 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> HashMap<NodeId, f64> {
     }
 
     let mut node_to_cost: HashMap<NodeId, f64> = HashMap::new();
-    for (_, term) in best_in_class {
+    /*for (_, term) in best_in_class {
         node_to_cost.insert(termdag.info[term].node.clone(), termdag.total_cost(term).into());
+    }*/
+    for (node_id, node) in &nodes {
+        let cost = best_in_class.get(&node.eclass).unwrap_or(&MAX);
+        node_to_cost.insert(node_id.clone(), *cost as f64);
     }
     node_to_cost
 }
