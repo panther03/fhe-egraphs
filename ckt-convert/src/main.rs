@@ -51,6 +51,13 @@ enum Commands {
         /// Output file
         outfile: PathBuf,
     },
+    #[command(name="eqn2egglog")]
+    Eqn2Egglog {
+        /// Input file to operate on
+        infile: PathBuf,
+        /// Output file
+        outfile: PathBuf,
+    },
     #[command(name="sexpr2eqn")]
     Sexpr2Eqn {
         /// Input file to operate on
@@ -85,6 +92,9 @@ fn main() {
         }
         Commands::Eqn2Seqn { infile, outfile } => {
             eqn::eqn2seqn(infile, outfile );
+        }
+        Commands::Eqn2Egglog { infile, outfile } => {
+            eqn::eqn2egglog(infile, outfile );
         }
         Commands::Stats { infile } => { stats::file_stats(infile); },
         Commands::Sexpr2Eqn { infile, outfile } => {

@@ -16,4 +16,4 @@ CASES=$(for c in $(ls bench/$BENCHSET); do echo "BENCH=$(basename $c .eqn)"; don
 export TIMEOUT=$((600000))
 export RULESET=$RULESET
 export BENCHSET=$BENCHSET
-parallel -j $JOBS  ./launch_opt.sh  ::: $CASES 
+parallel -j $JOBS  ./scripts/launch_opt.sh  ::: $CASES 

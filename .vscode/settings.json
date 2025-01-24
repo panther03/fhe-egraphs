@@ -1,12 +1,14 @@
 {
     "files.associations": {
+        "*.bsv": "bluespec",
         "iostream": "cpp",
         "span": "cpp",
         "map": "cpp",
         "typeinfo": "cpp",
         "string": "cpp",
         "tuple": "cpp",
-        "sstream": "cpp"
+        "sstream": "cpp",
+        "chrono": "cpp"
     },
     "cSpell.enabled": false
 }

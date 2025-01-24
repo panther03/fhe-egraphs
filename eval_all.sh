@@ -11,4 +11,4 @@ export BENCH_FOLDER=$1
 
 CASES=$(for c in $(ls "${BENCH_FOLDER}"/); do echo "BENCH=$(basename $c .eqn)"; done)
 
-parallel -j 1 ./launch_eval.sh  ::: $CASES 
+parallel -j 1 ./scripts/launch_eval.sh  ::: $CASES 

@@ -1,3 +1,5 @@
-INORDER = a b;
-OUTORDER = c;
-c = (a * !b) + (!a * b);
+INORDER = a b c;
+OUTORDER = d;
+n1 = a * b;
+n2 = c * a;
+d = (n1 * !n2) + (!n1 * n2);

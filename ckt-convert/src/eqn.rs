@@ -255,6 +255,59 @@ pub fn eqn2seqn(ineqn: PathBuf, outseqn: PathBuf) {
     std::fs::write(outseqn, contents).unwrap();
 }
 
+fn xag2egglog(x: &Xag, outstr: &mut String, seen: &HashMap<String, ()>)  {
+    if x.inv {
+        outstr.push_str("(Not ");
+    }
+    match x.op.as_ref() {
+        XagOp::Concat(ns) => unimplemented!(),
+        XagOp::Xor(n1, n2) => {
+            outstr.push_str("(Sum (multiset-of ");
+            xag2egglog(n1, outstr, seen);
+            outstr.push(' ');
+            xag2egglog(n2, outstr, seen);
+            outstr.push_str("))");
+        },
+        XagOp::And(n1, n2) => {
+            outstr.push_str("(Product (multiset-of ");
+            xag2egglog(n1, outstr, seen);
+            outstr.push(' ');
+            xag2egglog(n2, outstr, seen);
+            outstr.push_str("))");
+        },
+        XagOp::Ident(i) => { 
+            if seen.get(i).is_some() {
+                outstr.push_str(i.as_str());
+            } else {
+                outstr.push_str(format!("(Var \"{}\")", i).as_str());
+            }
+        },
+        _ => unimplemented!(),
+    }
+    if x.inv {
+        outstr.push(')');
+    }
+}
+
+pub fn eqn2egglog(ineqn: PathBuf, outseqn: PathBuf) {
+    let lines = std::fs::read_to_string(ineqn).unwrap();
+    let mut eqn = parse_eqn(&lines);
+
+    let mut contents = String::new();
+    let mut seen: HashMap<String, ()> = HashMap::new();
+
+    for lhs in eqn.lhses {
+        let rhs = eqn.equations.get(&lhs).unwrap();
+        let mut line = format!("(let {} ", lhs);        
+        xag2egglog(rhs, &mut line, &seen);
+        line.push_str(")\n");
+        contents.push_str(&line);
+        seen.insert(lhs, ());
+    }
+
+    std::fs::write(outseqn, contents).unwrap();
+}
+
 
 /////////////////
 // Xag -> Eqn //

@@ -1,5 +1,5 @@
 CKTCONV = ckt-convert/target/release/ckt-convert
-EGGTEST = eggtest/target/release/eggtest
+EQSATOPT = eqsat-opt/target/release/eqsat-opt
 HE_EVAL = he-eval/build/he-eval
 
 BENCH ?= i2c
@@ -11,15 +11,15 @@ INRULES = rules/$(RULESET)/leave-$(BENCH)
 OPTDIR ?= out/opt/
 
 all: verify stats eval
-#.PHONY: $(CKTCONV) $(EGGTEST) 
+#.PHONY: $(CKTCONV) $(EQSATOPT) 
 
 cktconv: $(CKTCONV)
 $(CKTCONV):
 	cd ckt-convert && cargo build --release
 
-eggtest: $(EGGTEST)
-$(EGGTEST):
-	cd eggtest && cargo build --release
+eqsatopt: $(EQSATOPT)
+$(EQSATOPT):
+	cd eqsat-opt && cargo build --release
 
 he-eval: $(HE_EVAL)
 $(HE_EVAL):
@@ -29,7 +29,7 @@ $(OPTDIR):
 	@mkdir -p $(OPTDIR)
 
 # optimize a single file
-opt: $(OPTDIR) cktconv eggtest $(INEQN)
+opt: $(OPTDIR) cktconv eqsatopt $(INEQN)
 	@$(CKTCONV) eqn2seqn $(INEQN) out/$(BENCH).seqn
 	@if [ -f "$(INRULES)" ]; then \
 		$(CKTCONV) lobster2egg-rules $(INRULES) out/$(BENCH).rules; \
@@ -41,7 +41,7 @@ opt: $(OPTDIR) cktconv eggtest $(INEQN)
 	else \
 		TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$1 * $$2 / 10000 * 60)}' ); \
 	fi; \
-	$(EGGTEST) md $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
+	$(EQSATOPT) md $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
 eval: $(OPTDIR)/$(BENCH).eqn he-eval
@@ -55,4 +55,4 @@ stats: $(OPTDIR)/$(BENCH).eqn
 
 # verify against ABC
 verify: $(OPTDIR)/$(BENCH).eqn
-	@./run_abc.sh $(INEQN) $(OPTDIR)/$(BENCH).eqn
+	@./scripts/run_abc.sh $(INEQN) $(OPTDIR)/$(BENCH).eqn

@@ -13,7 +13,7 @@ type TermId = usize;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct Term {
-    op: String,
+    //op: String,
     children: Vec<TermId>,
 }
 
@@ -55,7 +55,7 @@ impl TermDag {
         target: Cost,
     ) -> Option<TermId> {
         let term = Term {
-            op: node.op.clone(),
+            //op: node.op.clone(),
             children: children.clone(),
         };
 

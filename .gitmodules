@@ -1,0 +1,3 @@
+[submodule "eqsat-opt/deps/egg"]
+	path = eqsat-opt/deps/egg
+	url = https://github.com/panther03/egg.git

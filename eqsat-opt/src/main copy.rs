@@ -10,10 +10,26 @@ use std::time::{Duration, Instant};
 
 mod global_greedy_dag;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+struct MyThing {
+    stuff: [Id; 2]
+}
+
+impl LanguageChildren for MyThing {
+    fn len(&self) -> usize {
+        2
+    }
+
+    fn as_slice(&self) -> &[Id] {
+        return &self.stuff
+    }
+}
+
+
 define_language! {
     enum Prop {
         Bool(bool),
-        "*" = And([Id; 2]),
+        "*" = And(MyThing),
         "!" = Not(Id),
         "^" = Xor([Id; 2]),
         // used for having multiple outputs
@@ -486,7 +502,7 @@ fn main() {
         .parse()
         .expect("Invalid mode!");
     args.next();
-    let timeout_seconds = 120;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
+    let timeout_seconds = 80;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
     let start_expr_path = args.next().expect("No input expr file given!");
     let rules_path = args.next().expect("No input rules file given!");
     let output_eqn_path = args.next().expect("No output path given!");
@@ -494,7 +510,22 @@ fn main() {
     let start_time = Instant::now();
 
     let rules_string = std::fs::read_to_string(rules_path).unwrap();
-    let rules = process_rules(&rules_string);
+    //let rules = process_rules(&rules_string);
+    let mut rules_assoc: Vec<Rewrite<Prop, ()>> = vec![
+        // Basic commutativity rules, which Lobster assumes
+        rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
+        rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+        rw!("2"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
+        rw!("3"; "(* (* ?x ?y) ?z)" => "(* ?x (* ?y ?z))"),
+    ];
+    let mut rules_distrib: Vec<Rewrite<Prop,()>> = vec![
+        rw!("0"; "(^ ?x ?y)" => "(^ ?y ?x)"),
+        rw!("1"; "(* ?x ?y)" => "(* ?y ?x)"),
+        rw!("4"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
+        rw!("5"; "(^ (^ ?x ?y) ?z)" => "(^ ?x (^ ?y ?z))"),
+        rw!("6"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
+        rw!("7"; "(* ?x (^ ?y ?z))" => "(^ (* ?x ?y) (* ?x ?z))"),
+    ];  
 
     let start_string = std::fs::read_to_string(start_expr_path.clone()).unwrap();
     let mut start_lines = start_string.lines();
@@ -503,12 +534,26 @@ fn main() {
     let start = start_lines.collect::<Vec<&str>>().join("\n");
     let (ckt_node_to_eclass, start_egraph) = egraph_from_seqn(innodes, start.as_str());
 
-    let runner = Runner::default()
+    let mut runner = Runner::default()
         .with_egraph(start_egraph)
-        .with_time_limit(Duration::from_secs(timeout_seconds))
+        .with_time_limit(Duration::from_secs(10000000000000))
         .with_node_limit(250000000)
-        .with_iter_limit(10000000)
-        .run(rules.iter());
+        .with_iter_limit(1);
+        //.run(rules.iter());
+
+
+    for i in 0..1000 {
+        println!("Iter {}", i);
+        runner.iterations.pop();
+        runner = runner.run(if i % 2 == 0 { rules_distrib.iter()} else { rules_assoc.iter()});
+        dbg!(runner.stop_reason);
+        runner.stop_reason = None;
+        let elapsed = (Instant::now() - start_time).as_secs();
+        dbg!(elapsed);
+        if elapsed > timeout_seconds {
+            break;
+        }
+    }
     let sat_time = Instant::now() - start_time;
 
     let mut outnode_ids: Vec<Id> = Vec::new();
@@ -519,21 +564,21 @@ fn main() {
         outnode_ids.push(runner.egraph.find(*id));
     }
 
-    let egraph_ser = serialize_egraph(&runner.egraph, &outnode_ids,);
-
-    for (k,_) in std::env::vars() {
-        if k == "EGG_SERIALIZE" {
-            egraph_ser.to_json_file("egraph.json").unwrap();
-            break;
-        }
-    }
+//    let egraph_ser = serialize_egraph(&runner.egraph, &outnode_ids,);
+//
+//    for (k,_) in std::env::vars() {
+//        if k == "EGG_SERIALIZE" {
+//            egraph_ser.to_json_file("egraph.json").unwrap();
+//            break;
+//        }
+//    }
 
     let network = match mode {
         ExtractMode::MD => {
-            let mc_optimal = global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses);
+            //let mc_optimal = global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses);
             let mut mixedcost = MixedCost {
                 egraph: &runner.egraph,
-                enode_opt_lookup: mc_optimal,
+                enode_opt_lookup: HashMap::new(),
                 results: HashMap::new(),
                 visited: HashMap::new()
             };
