@@ -158,7 +158,6 @@ where
         let ecid: usize = (*root_eclass).into();
         serialize_number(ecid as u32, &mut writer);
     }
-    dbg!(writer.stream_position().unwrap());
     for class in egraph.classes() {
         let ecid: usize = (class.id).into();
         for (i, node) in class.nodes.iter().enumerate() {

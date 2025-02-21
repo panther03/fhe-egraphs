@@ -186,6 +186,14 @@ pub fn eqn2sexpr(ineqn: PathBuf, outsexpr: PathBuf, outnode: Option<&str>) {
     std::fs::write(outsexpr, contents).unwrap();
 }
 
+fn string_leaf(x: &XagOp) -> String {
+    match &x {
+        &XagOp::Lit(i) => i.to_string(),
+        &XagOp::Ident(s) => s.clone(),
+        _ => panic!()
+    }
+}
+
 pub fn expr_to_list(lhs: String, x: &Xag, seen: &mut HashMap<String, ()>) -> Result<String,()> {
     let is_xor: bool = match x.op.as_ref() {
         &parse::XagOp::And(_,_) => false,
@@ -197,7 +205,7 @@ pub fn expr_to_list(lhs: String, x: &Xag, seen: &mut HashMap<String, ()>) -> Res
     match x.op.as_ref() {
         // this is a disaster
         XagOp::And(n1, n2) | XagOp::Xor(n1, n2) => {
-            let XagOp::Ident(s1) = n1.op.as_ref() else { return Err(()) };
+            let s1 = string_leaf(n1.op.as_ref());
             let s1_n = format!("{}_n", s1);
             let s1 = if n1.inv { 
                 if seen.get(&s1_n).is_none() {
@@ -205,8 +213,8 @@ pub fn expr_to_list(lhs: String, x: &Xag, seen: &mut HashMap<String, ()>) -> Res
                     seen.insert(s1_n.clone(), ());
                 }
                 &s1_n
-            } else { s1 };
-            let XagOp::Ident(s2) = n2.op.as_ref() else { return Err(()) };
+            } else { &s1 };
+            let s2 = string_leaf(n2.op.as_ref());
             let s2_n = format!("{}_n", s2);
             let s2 = if n2.inv { 
                 if seen.get(&s2_n).is_none() {
@@ -214,7 +222,7 @@ pub fn expr_to_list(lhs: String, x: &Xag, seen: &mut HashMap<String, ()>) -> Res
                     seen.insert(s2_n.clone(), ());
                 }
                 &s2_n
-            } else { s2 };
+            } else { &s2 };
             let lhs_n = if x.inv { format!("{}_n", &lhs)} else { lhs.clone() };
             let mut thing= format!("{}{}={};{};{}\n", eqns, &lhs_n, if is_xor {"^"} else {"*"}, s1, s2);
             if x.inv {
@@ -313,10 +321,10 @@ pub fn eqn2egglog(ineqn: PathBuf, outseqn: PathBuf) {
 // Xag -> Eqn //
 ///////////////
 
-fn is_xag_leaf(xag: &Xag) -> Option<&str> {
+fn is_xag_leaf(xag: &Xag) -> Option<String> {
     match xag.op.as_ref() {
-        XagOp::Lit(b) => Some(if *b { "true" } else { "false" }),
-        XagOp::Ident(s) => Some(s),
+        XagOp::Lit(b) => Some((*b).to_string()),
+        XagOp::Ident(s) => Some(s.clone()),
         _ => None,
     }
 }
@@ -387,7 +395,7 @@ fn xag_to_eqn(xag: Xag, nodecnt: u32, dedup: &mut HashMap<NodeLookup,u32>, eqnou
             }
         },
         XagOp::Lit(b) => {
-            let the_lit = if b ^ xag.inv { "true" } else { "false" };
+            let the_lit = if if xag.inv {b == 0} else {b != 0} { "true" } else { "false" };
             let mut nodecnt = nodecnt;
             let outnode = fresh_node(&mut nodecnt);
             eqnout.push_str(format!("{} = {};\n", outnode, the_lit).as_str());

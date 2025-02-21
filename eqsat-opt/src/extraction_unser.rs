@@ -50,6 +50,23 @@ impl egg::CostFunction<Prop> for MultDepth {
     }
 }
 
+pub struct EsynDepth;
+impl egg::CostFunction<Prop> for EsynDepth {
+    type Cost = usize;
+    fn cost<C>(&mut self, enode: &Prop, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
+    {
+        let op_cost = match enode {
+            Prop::And(..) => 22,
+            Prop::Or(..) => 26,
+            Prop::Not(..) => 9,
+            _ => 0,
+        };
+        op_cost + enode.fold(0, |max, i| max.max(costs(i)))
+    }
+}
+
 pub fn dag_md_traversal<'a, N>(
     cost_analysis: &MixedCost<'a, Prop, N>,
     outnodes: &str,
@@ -202,6 +219,9 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &HashMap<String
             Prop::And([a, b]) => {
                 netd.push_str(format!("n{} * n{};", a, b).as_str());
             }
+            Prop::Or([a, b]) => {
+                netd.push_str(format!("n{} + n{};", a, b).as_str());
+            }
             Prop::Xor([a, b]) => {
                 netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
             }
@@ -220,7 +240,7 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &HashMap<String
         if ok {network.push(netd);}
     }
 
-    for (o_id, o_name) in out_net_to_eclass.iter() {
+    for (o_name, o_id) in out_net_to_eclass.iter() {
         network.push(format!("{} = n{};", o_name, o_id));
     }
 

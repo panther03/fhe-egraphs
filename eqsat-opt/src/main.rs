@@ -25,26 +25,52 @@ fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
         // Hardcoded laws
         //rw!("commX"; "(^ ?x ?y)" => "(^ ?y ?x)"),
         //rw!("commA"; "(* ?x ?y)" => "(* ?y ?x)"),
-        rw!("assocA"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
-        rw!("assocX"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
-        //rw!("factor"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
-        //rw!("distrib"; "(* (^ ?y ?z) ?x )" => "(^ (* ?x ?y) (* ?x ?z))"),
         
-        // The following are all boolean only
-        //rw!("ident"; "(?y)" => "(! (! ?y))"),
-        //rw!("xorDef"; "(! (* (! (* ?x (! ?y))) (! (* (! ?x) ?y))))" => "(^ ?y ?x)"),
-        //rw!("bool1"; "(^ ?x (* ?x ?y))" => "(* ?x (! ?y))"),
-        //rw!("bool2"; "(^ ?x (* (! ?x) ?y))" => "(! (* (! ?x) (! ?y)))"),
-        //rw!("bool3"; "(! (* (! ?x) (! ?y)))" => "(^ ?x (* (! ?x) ?y))" ),
+        rw!("null-element1"; "(* ?b 0)" => "0"), 
+        rw!("null-element2"; "(+ ?b 1)" => "1"), 
+        rw!("complements1"; "(* ?b (! ?b))" => "0"), 
+        rw!("complements2"; "(+ ?b (! ?b))" => "1"), 
+        rw!("covering1"; "(* ?b (+ ?b ?c))" => "?b"), 
+        rw!("covering2"; "(+ ?b (* ?b ?c))" => "?b"), 
+        rw!("combining1"; "(+ (* ?b ?c) (* ?b (! ?c)))" => "?b"), 
+        rw!("combining2"; "(* (+ ?b ?c) (+ ?b (! ?c)))" => "?b"),
+
+        //rw!("assocA"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
+        //rw!("assocX"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
+        ////rw!("factor"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
+        //rw!("distrib"; "(* (^ ?y ?z) ?x )" => "(^ (* ?x ?y) (* ?x ?z))"),
+        //
+        //// The following are all boolean only
+        ////rw!("ident"; "(?y)" => "(! (! ?y))"),
+        ////rw!("xorDef"; "(! (* (! (* ?x (! ?y))) (! (* (! ?x) ?y))))" => "(^ ?y ?x)"),
+        ////rw!("bool1"; "(^ ?x (* ?x ?y))" => "(* ?x (! ?y))"),
+        ////rw!("bool2"; "(^ ?x (* (! ?x) ?y))" => "(! (* (! ?x) (! ?y)))"),
+        ////rw!("bool3"; "(! (* (! ?x) (! ?y)))" => "(^ ?x (* (! ?x) ?y))" ),
     ];
+    rules.extend(rewrite!("identity1"; "(* ?b 1)" <=> "?b"));
+    rules.extend(rewrite!("identity2'"; "(+ ?b 0)" <=> "?b"));
+    rules.extend(rewrite!("idempotency1"; "(* ?b ?b)" <=> "?b"));
+    rules.extend(rewrite!("idempotency2"; "(+ ?b ?b)" <=> "?b"));
+    rules.extend(rewrite!("involution1"; "(! (! ?b))" <=> "?b"));
+    rules.extend(rewrite!("commutativity1"; "(* ?b ?c)" <=> "(* ?c ?b)"));
+    rules.extend(rewrite!("commutativity2"; "(+ ?b ?c)" <=> "(+ ?c ?b)"));
+    rules.extend(rewrite!("associativity1"; "(*(* ?b ?c) ?d)" <=> "(* ?b (* ?c ?d))"));
+    rules.extend(rewrite!("associativity2"; "(+(+ ?b ?c) ?d)" <=> "(+ ?b (+ ?c ?d))"));
+    rules.extend(rewrite!("distributivity1"; "(+ (* ?b ?c) (* ?b ?d))" <=> "(* ?b (+ ?c ?d))"));
+    rules.extend(rewrite!("distributivity2"; "(* (+ ?b ?c) (+ ?b ?d))" <=> "(+ ?b (* ?c ?d))"));
+    rules.extend(rewrite!("consensus1"; "(+ (+ (* ?b ?c) (* (! ?b) ?d)) (* ?c ?d))" <=> "(+ (* ?b ?c) (* (! ?b) ?d))"));
+    rules.extend(rewrite!("consensus2"; "(* (* (+ ?b ?c) (+ (! ?b) ?d)) (+ ?c ?d))" <=> "(* (+ ?b ?c) (+ (! ?b) ?d))"));
+    rules.extend(rewrite!("de-morgan1"; "(! (* ?b ?c))" <=> "(+ (! ?b) (! ?c))"));
+    rules.extend(rewrite!("de-morgan2"; "(! (+ ?b ?c))" <=> "(* (! ?b) (! ?c))"));
+
     let mut cnt = 0;
-    for line in rules_string.lines() {
-        let mut split = line.split(";");
-        let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
-        cnt += 1;
-    }
+    //for line in rules_string.lines() {
+    //    let mut split = line.split(";");
+    //    let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+    //    let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+    //    rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
+    //    cnt += 1;
+    //}
     rules
 }
 
@@ -68,8 +94,22 @@ fn egraph_from_seqn(innodes: &str, outnodes: &str, eqns: &str, explanations_enab
         //dbg!(&rhs);
         // operator
         let op = rhs.next().unwrap();
-        let src1 = ckt_node_to_eclass.get(rhs.next().unwrap());
-        let src2 = ckt_node_to_eclass.get(rhs.next().unwrap());
+        let src1_s = rhs.next().unwrap();
+        if let Ok(l1) = src1_s.parse::<u32>() {
+            if ckt_node_to_eclass.get(src1_s).is_none() {
+                ckt_node_to_eclass.insert(src1_s.to_string(), egraph.add(Prop::Int(l1)));    
+            }
+        }
+        
+        let src2_s = rhs.next().unwrap();
+        if let Ok(l2) = src2_s.parse::<u32>() {
+            if ckt_node_to_eclass.get(src2_s).is_none() {
+                ckt_node_to_eclass.insert(src2_s.to_string(), egraph.add(Prop::Int(l2)));    
+            }
+        }
+        
+        let src1 = ckt_node_to_eclass.get(src1_s);
+        let src2 = ckt_node_to_eclass.get(src2_s);
         let id = match op {
             "^" => egraph.add(Prop::Xor([
                 src1.unwrap().to_owned(),
@@ -127,7 +167,7 @@ impl EqsatOptimizer {
             .with_egraph(new_egraph)
             .with_time_limit(Duration::from_secs(self.timeout_secs))
             .with_node_limit(250000000)
-            .with_iter_limit(50)
+            .with_iter_limit(10000000)
             //.with_scheduler(BackoffScheduler::default().with_initial_match_limit(100))
             .run(self.rules.iter());
         
@@ -182,6 +222,25 @@ impl EqsatOptimizer {
         let (_,best_node) = extractor.find_best(sat_egraph.find(concat_node));
         let explanation = sat_egraph.explain_equivalence(&start_expr, &best_node); 
         println!("{}", explanation.get_string());
+        let extract_time = Instant::now() - start_time - sat_time;
+    
+        (extraction_unser::recexpr_traversal(best_node, &self.out_net_to_eclass), FlowStats {
+            final_eclasses: sat_egraph.number_of_classes(),
+            final_enodes: sat_egraph.total_number_of_nodes(),
+            sat_time,
+            extract_time
+        })
+    }
+
+    fn md_vanilla_flow(mut self, initial_egraph: EGraph<Prop, ()>, concat_node: Id) -> (String,FlowStats) { 
+        let start_time = Instant::now();
+        // saturation
+        let mut sat_egraph = self.saturate(initial_egraph, None);
+        let sat_time = Instant::now() - start_time;
+    
+        // extraction
+        let extractor = Extractor::new(&sat_egraph, extraction_unser::EsynDepth);
+        let (_,best_node) = extractor.find_best(sat_egraph.find(concat_node));
         let extract_time = Instant::now() - start_time - sat_time;
     
         (extraction_unser::recexpr_traversal(best_node, &self.out_net_to_eclass), FlowStats {
@@ -313,7 +372,8 @@ enum FlowMode {
     McIlp,
     MdExplain,
     MdDag,
-    MdMultipleIters
+    MdMultipleIters,
+    MdVanillaFlow
 }
 
 impl FromStr for FlowMode {
@@ -325,6 +385,7 @@ impl FromStr for FlowMode {
             "md-explain" => Ok(Self::MdExplain),
             "md-dag" => Ok(Self::MdDag),
             "md-multiple-iters" => Ok(Self::MdMultipleIters),
+            "md-vanilla-flow" => Ok(Self::MdVanillaFlow),
             _ => Err(()),
         }
     }
@@ -341,7 +402,7 @@ fn main() {
         .expect("Invalid mode!");
 
     args.next();
-    let timeout_seconds = 20;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
+    let timeout_seconds = 300;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
 
     let start_expr_path = args.next().expect("No input expr file given!");
     let rules_path = args.next().expect("No input rules file given!");
@@ -355,7 +416,7 @@ fn main() {
     let innodes = start_lines.next().unwrap();
     let outnodes = start_lines.next().unwrap();
     let start = start_lines.collect::<Vec<&str>>().join("\n");
-    let (start_egraph, out_net_to_eclass, concat_node) = egraph_from_seqn(innodes, outnodes, start.as_str(), flow == FlowMode::MdExplain);
+    let (start_egraph, out_net_to_eclass, concat_node) = egraph_from_seqn(innodes, outnodes, start.as_str(), flow == FlowMode::MdExplain || flow == FlowMode::MdVanillaFlow);
 
     let opter = EqsatOptimizer::new(rules, out_net_to_eclass).with_timeout(timeout_seconds);
 
@@ -363,7 +424,8 @@ fn main() {
         FlowMode::McIlp => opter.mc_ilp_flow(start_egraph),
         FlowMode::MdExplain => opter.md_explain_flow(start_egraph, concat_node.unwrap()),
         FlowMode::MdDag => unimplemented!(), //opter.md_dag_flow(start_egraph),
-        FlowMode::MdMultipleIters => opter.md_multiple_iters(start_egraph, 20)
+        FlowMode::MdMultipleIters => opter.md_multiple_iters(start_egraph, 10),
+        FlowMode::MdVanillaFlow => opter.md_vanilla_flow(start_egraph, concat_node.unwrap())
     };
     
     println!("{},{},{},{},{}", start_expr_path, stats.sat_time.as_secs(), stats.extract_time.as_secs(), stats.final_eclasses, stats.final_enodes);

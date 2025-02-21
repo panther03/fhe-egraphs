@@ -7,7 +7,7 @@ pub enum Token {
     Concat,
     LParen,
     RParen,
-    Lit(bool),
+    Lit(u32),
     Ident(String),
 }
 
@@ -23,7 +23,7 @@ pub enum XagOp {
     Xor(Xag, Xag),
     And(Xag, Xag),
     Ident(String),
-    Lit(bool)
+    Lit(u32)
 }
 
 impl Xag {
@@ -68,14 +68,18 @@ pub fn lex(source: &str) -> Vec<Token> {
         }
 
         if flush && !curr_token.is_empty() {
-            match curr_token.as_str() {
-                "and" => tokens.push(Token::And),
-                "or" => tokens.push(Token::Or),
-                "xor" => tokens.push(Token::Xor),
-                "not" => tokens.push(Token::Not),
-                "0" | "false" => tokens.push(Token::Lit(false)),
-                "1" | "true" => tokens.push(Token::Lit(true)),
-                _ => tokens.push(Token::Ident(curr_token.clone())),
+            if let Ok(l) = curr_token.parse::<u32>() {
+                tokens.push(Token::Lit(l))
+            } else {
+                match curr_token.as_str() {
+                    "and" => tokens.push(Token::And),
+                    "or" => tokens.push(Token::Or),
+                    "xor" => tokens.push(Token::Xor),
+                    "not" => tokens.push(Token::Not),
+                    "false" => tokens.push(Token::Lit(0)),
+                    "true" => tokens.push(Token::Lit(1)),
+                    _ => tokens.push(Token::Ident(curr_token.clone())),
+                }
             }
             curr_token = String::new();
             ctr -= 1;
@@ -194,7 +198,7 @@ pub fn xag_to_sexpr(xag: Xag, question_identifiers: bool) -> String {
             }
             XagOp::Lit(b) => {
                 op_cnt -= 1;
-                output_str.push_str( if b {"true"} else {"false"});
+                output_str.push_str( b.to_string().as_str());
             }
             XagOp::Ident(s) => {
                 op_cnt -= 1;

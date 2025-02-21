@@ -135,7 +135,8 @@ pub fn dag_network_writer(
                 PropId::Xor => {
                     let a = enode.children[0].class();
                     let b = enode.children[1].class();
-                    netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
+                    netd.push_str(format!("n{} ^ n{};", a, b).as_str());
+                    //netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
                 }
                 PropId::Not => {
                     let a = enode.children[0].class();

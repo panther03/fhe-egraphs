@@ -38,7 +38,7 @@ fn postfix_to_prefix_rule(postfix: Vec<Token>) -> String {
             }
             Token::Lit(b) => {
                 op_cnt -= 1;
-                output_str.push_str(if *b { "true" } else { "false" });
+                output_str.push_str((*b).to_string().as_str());
             }
             Token::Ident(ident) => {
                 op_cnt -= 1;
@@ -107,10 +107,10 @@ fn constant_fold(xag: Xag, maxpicount: u32) -> Xag {
             let n2_cf = constant_fold(n2.to_owned(), maxpicount);
             let mut n = match (n1_cf.op.as_ref(), n2_cf.op.as_ref()) {
                 (_, parse::XagOp::Lit(b)) => {                    
-                    if *b ^ n2_cf.inv { n1_cf } else { n2_cf }
+                    if (*b != 0) ^ n2_cf.inv { n1_cf } else { n2_cf }
                 },
                 (parse::XagOp::Lit(b), _) => {
-                    if *b ^ n1_cf.inv { n2_cf } else { n1_cf }
+                    if (*b != 0) ^ n1_cf.inv { n2_cf } else { n1_cf }
                 },
                 _ => Xag {
                     inv: false,
@@ -125,13 +125,13 @@ fn constant_fold(xag: Xag, maxpicount: u32) -> Xag {
             let mut n2_cf = constant_fold(n2.to_owned(), maxpicount);
             let mut n = match (n1_cf.op.as_ref(), n2_cf.op.as_ref()) {
                 (_, parse::XagOp::Lit(b)) => {                    
-                    if *b ^ n2_cf.inv { 
+                    if (*b != 0) ^ n2_cf.inv { 
                         n1_cf.inv = !n1_cf.inv;
                     }
                     n1_cf
                 }
                 (parse::XagOp::Lit(b), _) => {
-                    if *b ^ n1_cf.inv { 
+                    if (*b != 0) ^ n1_cf.inv { 
                         n2_cf.inv = !n2_cf.inv;
                     }
                     n2_cf
@@ -148,7 +148,7 @@ fn constant_fold(xag: Xag, maxpicount: u32) -> Xag {
             let pi_n = (s[2..]).parse::<u32>();
             if pi_n.is_ok() && pi_n.unwrap() < (6 - maxpicount) {
                 let mut x = xag;
-                x.op = Box::new(parse::XagOp::Lit(false));
+                x.op = Box::new(parse::XagOp::Lit(0));
                 x
             } else {
               xag

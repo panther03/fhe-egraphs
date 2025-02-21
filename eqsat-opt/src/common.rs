@@ -7,8 +7,10 @@ use std::cmp::Ordering;
 define_language! {
     pub enum Prop {
         Bool(bool),
+        Int(u32),
         "*" = And([Id; 2]),
         "!" = Not(Id),
+        "+" = Or([Id; 2]),
         "^" = Xor([Id; 2]),
         // used for having multiple outputs
         "$" = Concat(Vec<Id>),
