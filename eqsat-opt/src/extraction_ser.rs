@@ -70,7 +70,7 @@ impl MixedCost {
 pub fn dag_network_writer(
     egraph: &EGraph,
     cost_analysis: &mut ExtractionResult,
-    out_net_to_eclass: &HashMap<String, egg::Id>
+    out_net_to_eclass: &IndexMap<String, egg::Id>
 ) -> String {
     // temporary network to hold nodes whose children have not been visited yet
     let mut network: Vec<String> = Vec::new();

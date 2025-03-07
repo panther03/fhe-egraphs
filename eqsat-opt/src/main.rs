@@ -20,7 +20,7 @@ use common::Prop;
 // Saturation setup (input parsing) //
 /////////////////////////////////////
 
-fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
+fn esyn_rules() -> Vec<Rewrite<Prop,()>> {
     let mut rules: Vec<Rewrite<Prop, ()>> = vec![
         // Hardcoded laws
         //rw!("commX"; "(^ ?x ?y)" => "(^ ?y ?x)"),
@@ -35,11 +35,6 @@ fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
         rw!("combining1"; "(+ (* ?b ?c) (* ?b (! ?c)))" => "?b"), 
         rw!("combining2"; "(* (+ ?b ?c) (+ ?b (! ?c)))" => "?b"),
 
-        //rw!("assocA"; "(* ?x (* ?y ?z))" => "(* (* ?x ?y) ?z)"),
-        //rw!("assocX"; "(^ ?x (^ ?y ?z))" => "(^ (^ ?x ?y) ?z)"),
-        ////rw!("factor"; "(^ (* ?x ?y) (* ?x ?z))" => "(* ?x (^ ?y ?z))"),
-        //rw!("distrib"; "(* (^ ?y ?z) ?x )" => "(^ (* ?x ?y) (* ?x ?z))"),
-        //
         //// The following are all boolean only
         ////rw!("ident"; "(?y)" => "(! (! ?y))"),
         ////rw!("xorDef"; "(! (* (! (* ?x (! ?y))) (! (* (! ?x) ?y))))" => "(^ ?y ?x)"),
@@ -62,19 +57,45 @@ fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
     rules.extend(rewrite!("consensus2"; "(* (* (+ ?b ?c) (+ (! ?b) ?d)) (+ ?c ?d))" <=> "(* (+ ?b ?c) (+ (! ?b) ?d))"));
     rules.extend(rewrite!("de-morgan1"; "(! (* ?b ?c))" <=> "(+ (! ?b) (! ?c))"));
     rules.extend(rewrite!("de-morgan2"; "(! (+ ?b ?c))" <=> "(* (! ?b) (! ?c))"));
-
-    let mut cnt = 0;
-    //for line in rules_string.lines() {
-    //    let mut split = line.split(";");
-    //    let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-    //    let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-    //    rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
-    //    cnt += 1;
-    //}
     rules
 }
 
-fn egraph_from_seqn(innodes: &str, outnodes: &str, eqns: &str, explanations_enabled: bool) -> (EGraph<Prop, ()>, HashMap<String, Id>, Option<Id>) {
+fn integer_rules() -> Vec<Rewrite<Prop,()>> {
+    let mut rules: Vec<Rewrite<Prop, ()>> = Vec::new();
+    rules.extend(rewrite!("assocA"; "(* ?x (* ?y ?z))" <=> "(* (* ?x ?y) ?z)"));
+    rules.extend(rewrite!("assocX"; "(^ ?x (^ ?y ?z))" <=> "(^ (^ ?x ?y) ?z)"));
+    rules.extend(rewrite!("factorDistrib"; "(^ (* ?x ?y) (* ?x ?z))" <=> "(* ?x (^ ?y ?z))"));
+    rules
+}
+
+fn boolean_rules() -> Vec<Rewrite<Prop, ()>> {
+    let mut rules: Vec<Rewrite<Prop, ()>> = Vec::new();
+    rules.extend(rewrite!("assocA"; "(* ?x (* ?y ?z))" <=> "(* (* ?x ?y) ?z)"));
+    rules.extend(rewrite!("assocX"; "(^ ?x (^ ?y ?z))" <=> "(^ (^ ?x ?y) ?z)"));
+    rules.extend(rewrite!("factorDistrib"; "(^ (* ?x ?y) (* ?x ?z))" <=> "(* ?x (^ ?y ?z))"));
+    rules.extend(rewrite!("manual4";"(^ ?x (* ?x ?y))" <=> "(* ?x (! ?y))"));
+    rules.extend(rewrite!("manual5";"(^ ?x (* (! ?x) ?y))" <=> "(! (* (! ?x) (! ?y)))"));
+    rules.extend(rewrite!("manual6";"(! (* (! ?x) (! ?y)))" <=> "(^ ?x (* (! ?x) ?y))"));
+    rules
+}
+
+fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
+    //let mut rules = esyn_rules();    
+    let mut rules = boolean_rules();
+
+    let mut cnt = 0;
+
+    for line in rules_string.lines() {
+        let mut split = line.split(";");
+        let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+        let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+        rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
+        cnt += 1;
+    }
+    rules
+}
+
+fn egraph_from_seqn(innodes: &str, outnodes: &str, eqns: &str, explanations_enabled: bool) -> (EGraph<Prop, ()>, IndexMap<String, Id>, Option<Id>) {
     let mut egraph = EGraph::<Prop, ()>::default();
     if explanations_enabled {
         egraph = egraph.with_explanations_enabled();
@@ -125,10 +146,10 @@ fn egraph_from_seqn(innodes: &str, outnodes: &str, eqns: &str, explanations_enab
         };
         ckt_node_to_eclass.insert(lhs.to_string(), id);
     }
-    let mut out_net_to_eclass: HashMap<String, Id> = HashMap::new();
+    let mut out_net_to_eclass: IndexMap<String, Id> = IndexMap::new();
     let mut outnodes_vec: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
-        let outnode_id = *ckt_node_to_eclass.get(outnode).unwrap();
+        let outnode_id = egraph.find(*ckt_node_to_eclass.get(outnode).unwrap());
         outnodes_vec.push(outnode_id);
         out_net_to_eclass.insert(outnode.to_string(), outnode_id);
     }
@@ -142,13 +163,13 @@ fn egraph_from_seqn(innodes: &str, outnodes: &str, eqns: &str, explanations_enab
 ////////////////////////
 struct EqsatOptimizer {
     rules: Vec<Rewrite<Prop, ()>>,
-    out_net_to_eclass: HashMap<String, Id>,
+    out_net_to_eclass: IndexMap<String, Id>,
     new_to_old: HashMap<Id, Id>,
     timeout_secs: u64 
 }
 
 impl EqsatOptimizer {
-    fn new(rules: Vec<Rewrite<Prop, ()>>, out_net_to_eclass: HashMap<String, Id>) -> Self {
+    fn new(rules: Vec<Rewrite<Prop, ()>>, out_net_to_eclass: IndexMap<String, Id>) -> Self {
         Self {
             rules,
             out_net_to_eclass,
@@ -235,7 +256,7 @@ impl EqsatOptimizer {
     fn md_vanilla_flow(mut self, initial_egraph: EGraph<Prop, ()>, concat_node: Id) -> (String,FlowStats) { 
         let start_time = Instant::now();
         // saturation
-        let mut sat_egraph = self.saturate(initial_egraph, None);
+        let sat_egraph = self.saturate(initial_egraph, None);
         let sat_time = Instant::now() - start_time;
     
         // extraction
@@ -402,7 +423,7 @@ fn main() {
         .expect("Invalid mode!");
 
     args.next();
-    let timeout_seconds = 300;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
+    let timeout_seconds = 20;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
 
     let start_expr_path = args.next().expect("No input expr file given!");
     let rules_path = args.next().expect("No input rules file given!");

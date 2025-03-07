@@ -1,6 +1,7 @@
 // Extraction algorithms working (primarily) on the
 // unserialized E-Graph (from egg itself)
 use egg::{rewrite as rw, *};
+use indexmap::IndexMap;
 
 use std::fmt::Display;
 use std::usize::MAX;
@@ -52,18 +53,30 @@ impl egg::CostFunction<Prop> for MultDepth {
 
 pub struct EsynDepth;
 impl egg::CostFunction<Prop> for EsynDepth {
-    type Cost = usize;
+    type Cost = DepthArea;
     fn cost<C>(&mut self, enode: &Prop, mut costs: C) -> Self::Cost
     where
         C: FnMut(Id) -> Self::Cost,
     {
-        let op_cost = match enode {
-            Prop::And(..) => 22,
-            Prop::Or(..) => 26,
-            Prop::Not(..) => 9,
-            _ => 0,
-        };
-        op_cost + enode.fold(0, |max, i| max.max(costs(i)))
+        let base = enode.fold(DepthArea {depth: 0, area: 0.0}, |sum, i| sum + costs(i));
+        match enode {
+            Prop::And(..) => DepthArea {
+                depth: base.depth + 22,
+                area: base.area + 22.,
+            },
+            Prop::Or(..) => DepthArea {
+                depth: base.depth + 26,
+                area: base.area + 26.,
+            },
+            Prop::Not(..) => DepthArea {
+                depth: base.depth + 9,
+                area: base.area + 9.
+            },
+            _ => DepthArea {
+                depth: 0,
+                area: 0.0
+            },
+        }        
     }
 }
 
@@ -209,7 +222,7 @@ where
     (critical_path, real_network.join("\n"))
 }
 
-pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &HashMap<String, Id>) -> String {
+pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<String, Id>) -> String {
     let mut network: Vec<String> = Vec::new();
 
     for (id, p) in expr.as_ref().iter().enumerate() {
@@ -235,13 +248,15 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &HashMap<String
             Prop::Bool(b) => {
                 netd.push_str(if *b { "true;" } else { "false;" });
             }
+            Prop::Concat(outs ) => {
+                for ((o_name, _), o_id) in out_net_to_eclass.iter().zip(outs.iter()) {
+                    network.push(format!("{} = n{};", o_name, o_id));            
+                }
+                ok = false;
+            }
             _ => { ok = false; }
         }
         if ok {network.push(netd);}
-    }
-
-    for (o_name, o_id) in out_net_to_eclass.iter() {
-        network.push(format!("{} = n{};", o_name, o_id));
     }
 
     network.join("\n")

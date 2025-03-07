@@ -41,7 +41,7 @@ opt: $(OPTDIR) cktconv eqsatopt $(INEQN)
 	else \
 		TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$1 * $$2 / 10000 * 60)}' ); \
 	fi; \
-	$(EQSATOPT) md-vanilla-flow $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
+	$(EQSATOPT) md-multiple-iters $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
 eval: $(OPTDIR)/$(BENCH).eqn he-eval
