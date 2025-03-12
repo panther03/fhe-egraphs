@@ -1,0 +1,126 @@
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.0000091)). Time take for runner: 300.212792685s, Classes: 63313, Nodes: 202588, Size: 329129
+
+
+[src/main.rs:73:5] input_path = "sexpr/bar.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 12
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000005258)). Time take for runner: 300.206291504s, Classes: 21528, Nodes: 46088, Size: 58884
+
+
+[src/main.rs:73:5] input_path = "sexpr/cardio.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 8
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000006489)). Time take for runner: 300.220181439s, Classes: 144299, Nodes: 467531, Size: 590272
+
+
+[src/main.rs:73:5] input_path = "sexpr/cavlc.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 10
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000004026)). Time take for runner: 300.20407244s, Classes: 38502, Nodes: 98683, Size: 127723
+
+
+[src/main.rs:73:5] input_path = "sexpr/ctrl.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 5
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000103285)). Time take for runner: 300.251243341s, Classes: 402302, Nodes: 972260, Size: 1552539
+
+
+[src/main.rs:73:5] input_path = "sexpr/dec.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 3
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000005752)). Time take for runner: 300.299813367s, Classes: 101186, Nodes: 209221, Size: 227202
+
+
+[src/main.rs:73:5] input_path = "sexpr/dsort.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 7
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000012393)). Time take for runner: 300.20332775s, Classes: 29974, Nodes: 78181, Size: 82705
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd01.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 6
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000007863)). Time take for runner: 300.212487268s, Classes: 122978, Nodes: 273753, Size: 400814
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd02.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 6
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000003473)). Time take for runner: 300.227034632s, Classes: 225087, Nodes: 646935, Size: 1139116
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd03.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 4
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000003319)). Time take for runner: 300.205876679s, Classes: 75146, Nodes: 139285, Size: 144451
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd04.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 9
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000005098)). Time take for runner: 300.208442937s, Classes: 82604, Nodes: 185303, Size: 201680
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd05.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 6
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000005172)). Time take for runner: 300.210564159s, Classes: 81504, Nodes: 181508, Size: 193205
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd06.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 6
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000002455)). Time take for runner: 300.212688125s, Classes: 119522, Nodes: 256596, Size: 266201
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd07.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 4
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000005004)). Time take for runner: 300.204554925s, Classes: 28401, Nodes: 72173, Size: 77212
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd08.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 5
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.00000539)). Time take for runner: 300.202858122s, Classes: 17622, Nodes: 40922, Size: 41777
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd09.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 12
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000005014)). Time take for runner: 300.213476149s, Classes: 115174, Nodes: 291069, Size: 311436
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd10.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 5
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000003045)). Time take for runner: 300.208477715s, Classes: 36165, Nodes: 105765, Size: 153161
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd11.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 15
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000021057)). Time take for runner: 300.253919465s, Classes: 30790, Nodes: 85269, Size: 105293
+
+
+[src/main.rs:73:5] input_path = "sexpr/hd12.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 15
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000081185)). Time take for runner: 300.242140102s, Classes: 358218, Nodes: 846721, Size: 955131
+
+
+[src/main.rs:73:5] input_path = "sexpr/i2c.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 10
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000003538)). Time take for runner: 300.210359871s, Classes: 63350, Nodes: 218624, Size: 246217
+
+
+[src/main.rs:73:5] input_path = "sexpr/int2float.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 8
+[src/utils/language.rs:107:5] rules.len() = 12
+Runner stopped: Some(TimeLimit(300.000002498)). Time take for runner: 300.205339461s, Classes: 39567, Nodes: 107104, Size: 121847
+
+
+[src/main.rs:73:5] input_path = "sexpr/router.sexpr"
+[src/main.rs:74:5] best_cost_base_0 = 10

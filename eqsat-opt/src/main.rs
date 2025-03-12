@@ -47,8 +47,8 @@ fn esyn_rules() -> Vec<Rewrite<Prop,()>> {
     rules.extend(rewrite!("idempotency1"; "(* ?b ?b)" <=> "?b"));
     rules.extend(rewrite!("idempotency2"; "(+ ?b ?b)" <=> "?b"));
     rules.extend(rewrite!("involution1"; "(! (! ?b))" <=> "?b"));
-    rules.extend(rewrite!("commutativity1"; "(* ?b ?c)" <=> "(* ?c ?b)"));
-    rules.extend(rewrite!("commutativity2"; "(+ ?b ?c)" <=> "(+ ?c ?b)"));
+    //rules.extend(rewrite!("commutativity1"; "(* ?b ?c)" <=> "(* ?c ?b)"));
+    //rules.extend(rewrite!("commutativity2"; "(+ ?b ?c)" <=> "(+ ?c ?b)"));
     rules.extend(rewrite!("associativity1"; "(*(* ?b ?c) ?d)" <=> "(* ?b (* ?c ?d))"));
     rules.extend(rewrite!("associativity2"; "(+(+ ?b ?c) ?d)" <=> "(+ ?b (+ ?c ?d))"));
     rules.extend(rewrite!("distributivity1"; "(+ (* ?b ?c) (* ?b ?d))" <=> "(* ?b (+ ?c ?d))"));
@@ -80,18 +80,19 @@ fn boolean_rules() -> Vec<Rewrite<Prop, ()>> {
 }
 
 fn process_rules(rules_string: &str) -> Vec<Rewrite<Prop, ()>> {
-    //let mut rules = esyn_rules();    
-    let mut rules = boolean_rules();
+    let mut rules = esyn_rules();    
+    //let mut rules =boolean_rules();
 
     let mut cnt = 0;
 
-    for line in rules_string.lines() {
-        let mut split = line.split(";");
-        let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
-        rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
-        cnt += 1;
-    }
+    
+    //for line in rules_string.lines() {
+    //    let mut split = line.split(";");
+    //    let lhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+    //    let rhs: Pattern<Prop> = split.next().unwrap().parse().unwrap();
+    //    rules.push(rw!({cnt.to_string()}; {lhs} => {rhs}));
+    //    cnt += 1;
+    //}
     rules
 }
 
@@ -153,7 +154,13 @@ fn egraph_from_seqn(innodes: &str, outnodes: &str, eqns: &str, explanations_enab
         outnodes_vec.push(outnode_id);
         out_net_to_eclass.insert(outnode.to_string(), outnode_id);
     }
-    let concat_id = if explanations_enabled { Some(egraph.add(Prop::Concat(outnodes_vec))) } else { None };
+    let concat_id = if explanations_enabled { 
+        let mut concat_node = egraph.add(Prop::Concat2([outnodes_vec[0], outnodes_vec[1]]));
+        for n in &outnodes_vec[2..] {
+            concat_node = egraph.add(Prop::Concat2([concat_node, *n]));
+        }
+        // Some(egraph.add(Prop::Concat(outnodes_vec)))
+        Some(concat_node)  } else { None };
     (egraph, out_net_to_eclass, concat_id)
 }
 
@@ -260,8 +267,10 @@ impl EqsatOptimizer {
         let sat_time = Instant::now() - start_time;
     
         // extraction
-        let extractor = Extractor::new(&sat_egraph, extraction_unser::EsynDepth);
-        let (_,best_node) = extractor.find_best(sat_egraph.find(concat_node));
+        let extractor = Extractor::new(&sat_egraph, egg::AstDepth);
+        let (best_cost,best_node) = extractor.find_best(sat_egraph.find(concat_node));
+        println!("{}", best_node.to_string());
+        panic!();
         let extract_time = Instant::now() - start_time - sat_time;
     
         (extraction_unser::recexpr_traversal(best_node, &self.out_net_to_eclass), FlowStats {
@@ -423,7 +432,7 @@ fn main() {
         .expect("Invalid mode!");
 
     args.next();
-    let timeout_seconds = 20;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
+    let timeout_seconds = 300;//args.next().expect("No timeout given").parse::<u64>().expect("Invalid timeout").min(60);
 
     let start_expr_path = args.next().expect("No input expr file given!");
     let rules_path = args.next().expect("No input rules file given!");
@@ -437,9 +446,13 @@ fn main() {
     let innodes = start_lines.next().unwrap();
     let outnodes = start_lines.next().unwrap();
     let start = start_lines.collect::<Vec<&str>>().join("\n");
-    let (start_egraph, out_net_to_eclass, concat_node) = egraph_from_seqn(innodes, outnodes, start.as_str(), flow == FlowMode::MdExplain || flow == FlowMode::MdVanillaFlow);
+    //let (start_egraph, out_net_to_eclass, concat_node) = egraph_from_seqn(innodes, outnodes, start.as_str(), flow == FlowMode::MdExplain || flow == FlowMode::MdVanillaFlow);
+    let sexpr = start.parse().unwrap();
+    let mut start_egraph = EGraph::default();
+    let concat_node = Some(start_egraph.add_expr(&sexpr));
 
-    let opter = EqsatOptimizer::new(rules, out_net_to_eclass).with_timeout(timeout_seconds);
+    //let opter = EqsatOptimizer::new(rules, out_net_to_eclass).with_timeout(timeout_seconds);
+    let opter = EqsatOptimizer::new(rules, IndexMap::new()).with_timeout(timeout_seconds);
 
     let (network, stats) = match flow {
         FlowMode::McIlp => opter.mc_ilp_flow(start_egraph),

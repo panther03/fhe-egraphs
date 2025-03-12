@@ -11,7 +11,9 @@ RULESET=$1
 BENCHSET=$2
 JOBS=$3
 
-CASES=$(for c in $(ls bench/$BENCHSET); do echo "BENCH=$(basename $c .eqn)"; done)
+CASES=$(for c in $(ls bench/$BENCHSET); do echo "BENCH=$(basename $c .sexpr)"; done)
+echo $CASES
+#CASES=$(for c in $(ls bench/$BENCHSET); do echo "BENCH=$(basename $c .eqn)"; done)
 # not the real timeout
 export TIMEOUT=$((600000))
 export RULESET=$RULESET

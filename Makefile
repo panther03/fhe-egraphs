@@ -29,19 +29,21 @@ $(OPTDIR):
 	@mkdir -p $(OPTDIR)
 
 # optimize a single file
-opt: $(OPTDIR) cktconv eqsatopt $(INEQN)
-	@$(CKTCONV) eqn2seqn $(INEQN) out/$(BENCH).seqn
+# $(INEQN)
+opt: $(OPTDIR) cktconv eqsatopt 
+#	@$(CKTCONV) eqn2seqn $(INEQN) out/$(BENCH).seqn
 	@if [ -f "$(INRULES)" ]; then \
 		$(CKTCONV) lobster2egg-rules $(INRULES) out/$(BENCH).rules; \
 	else \
 		$(CKTCONV) lobster2egg-rules rules/$(RULESET)/all_cases out/$(BENCH).rules; \
 	fi
-	@if [ "$(BENCHSET)" = "iscas" ]; then \
+#	@if [ "$(BENCHSET)" = "iscas" ]; then \
 		TIMEOUT=60; \
 	else \
 		TIMEOUT=$$( $(CKTCONV) stats $(INEQN) | awk -F',' '{print int($$1 * $$1 * $$2 / 10000 * 60)}' ); \
-	fi; \
-	$(EQSATOPT) md-multiple-iters $$TIMEOUT out/$(BENCH).seqn out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
+	fi;
+#	 $$TIMEOUT
+	$(EQSATOPT) md-vanilla-flow 60 bench/sexpr/$(BENCH).sexpr out/$(BENCH).rules $(OPTDIR)/$(BENCH).eqn
 
 # homomorphic evaluation
 eval: $(OPTDIR)/$(BENCH).eqn he-eval

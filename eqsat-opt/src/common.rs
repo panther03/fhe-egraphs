@@ -14,6 +14,7 @@ define_language! {
         "^" = Xor([Id; 2]),
         // used for having multiple outputs
         "$" = Concat(Vec<Id>),
+        "&" = Concat2([Id; 2]),
         Symbol(Symbol),
     }
 }
