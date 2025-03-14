@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bitcode = "0.6.3"
+clap = { version = "4.5.32", features = ["derive"] }
 #egg = { version = "0.9.5", features = ["lp"] }
 egg = { path = "deps/egg", features = ["lp"] }
 egraph-serialize = { path = "deps/egraph-serialize" }

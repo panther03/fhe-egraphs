@@ -83,7 +83,8 @@ pub fn convert_rules(inrules: PathBuf, outrules: PathBuf, rulecnt: i32) {
                 break;
             }
             let rule_str = format!(
-                "{};{}\n",
+                "lbstr{}:{}=>{}\n",
+                rulecnt,
                 rule.lhs.unwrap().as_str(),
                 rule.rhs.unwrap().as_str()
             );
@@ -175,6 +176,7 @@ pub fn convert_cut_rewriting_rules(lhses: PathBuf, rhses: PathBuf, outrules: Pat
     let mut lhs_tts: HashMap<u64, u64> = HashMap::new();
 
     let mut rules = String::new();
+    let mut cnt = 0;
     for lhs in lhses.lines() {
         let mut lhs_split = lhs.split('=');
         let maxpicount = lhs_split.next().unwrap().parse::<u32>().unwrap();
@@ -188,7 +190,8 @@ pub fn convert_cut_rewriting_rules(lhses: PathBuf, rhses: PathBuf, outrules: Pat
         let rhs_xag = tt_to_rhs.get(&tt).unwrap().clone();
         let rhs_xag_cf = constant_fold(rhs_xag, maxpicount);
         let rhs_xag_cf = parse::xag_to_sexpr(rhs_xag_cf, false);
-        rules.push_str(format!("{};{}\n", lhs_xag, rhs_xag_cf).as_str());
+        rules.push_str(format!("ctr{}:{}=>{}\n", cnt, lhs_xag, rhs_xag_cf).as_str());
+        cnt += 1;
     }
     std::fs::write(outrules, rules).unwrap();
 }

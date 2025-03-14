@@ -7,7 +7,7 @@ mod dot;
 mod rules;
 mod stats;
 
-/// Simple program to greet a person
+/// Convert various circuit formats.
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
