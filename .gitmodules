@@ -3,4 +3,4 @@
 	url = https://github.com/panther03/egg.git
 [submodule "eqsat-opt/deps/egraph-serialize"]
 	path = eqsat-opt/deps/egraph-serialize
-	url = git@github.com:panther03/egraph-serialize.git
+	url = https://github.com/panther03/egraph-serialize.git
