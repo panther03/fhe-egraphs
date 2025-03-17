@@ -7,27 +7,7 @@ find_package(BISON REQUIRED)
 find_package(FLEX REQUIRED)
 find_package(helib 2.2.0 EXACT REQUIRED)
 
-#message( STATUS "Using OpenFHE_LIBDIR=${OpenFHE_LIBDIR}" )
-
-set( CMAKE_CXX_FLAGS "-g")
-#
-#include_directories( ${OPENMP_INCLUDES} )
-#include_directories( ${OpenFHE_INCLUDE} )
-#include_directories( ${OpenFHE_INCLUDE}/third-party/include )
-#include_directories( ${OpenFHE_INCLUDE}/core )
-#include_directories( ${OpenFHE_INCLUDE}/pke )
-#include_directories( ${OpenFHE_INCLUDE}/binfhe )
-### add directories for other OpenFHE modules as needed for your project
-
-#link_directories( ${OpenFHE_LIBDIR} )
-#link_directories( ${OPENMP_LIBRARIES} )
-#if (BUILD_STATIC)
-#    set(CMAKE_EXE_LINKER_FLAGS "${OpenFHE_EXE_LINKER_FLAGS} -static")
-#    link_libraries(${OpenFHE_STATIC_LIBRARIES})
-#else ()
-#    set(CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS})
-#    link_libraries(${OpenFHE_SHARED_LIBRARIES})
-#endif ()
+set( CMAKE_CXX_FLAGS "-g -std=c++17")
 
 BISON_TARGET(
     eqn_parser
