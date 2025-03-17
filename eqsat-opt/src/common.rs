@@ -33,12 +33,12 @@ pub struct DepthArea {
     pub area: f64,
 }
 impl DepthArea {
-    pub fn cost(&self) -> usize {
-        self.depth*self.depth * (self.area as usize)
-    }
-    pub fn new() -> Self {
-        DepthArea { depth: 0, area: 0.0 }
-    }
+    //pub fn cost(&self) -> usize {
+    //    self.depth*self.depth * (self.area as usize)
+    //}
+    //pub fn new() -> Self {
+    //    DepthArea { depth: 0, area: 0.0 }
+    //}
     pub fn max() -> Self {
         DepthArea { depth: MAX, area: INFINITY }
     }

@@ -1,11 +1,10 @@
 // Extraction algorithms working (primarily) on the
 // unserialized E-Graph (from egg itself)
-use egg::{rewrite as rw, *};
+use egg::*;
 use indexmap::IndexMap;
 
-use std::fmt::Display;
 use std::usize::MAX;
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 use egraph_serialize::NodeId;
 use std::f64::INFINITY;
@@ -80,6 +79,7 @@ impl egg::CostFunction<Prop> for EsynDepth {
     }
 }
 
+#[allow(unused)]
 pub fn dag_md_traversal<'a, N>(
     cost_analysis: &MixedCost<'a, Prop, N>,
     outnodes: &str,
@@ -262,7 +262,7 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<Strin
     network.join("\n")
 }
 
-
+#[allow(unused)]
 pub struct MixedCost<'a, L: Language, N: Analysis<L>> {
     pub egraph: &'a EGraph<L,N>,
     pub enode_opt_lookup: HashMap<egraph_serialize::NodeId, f64>,
@@ -270,6 +270,7 @@ pub struct MixedCost<'a, L: Language, N: Analysis<L>> {
     pub visited: HashMap<Id,Id>
 }
 impl <'a, N: Analysis<Prop>> MixedCost<'a, Prop, N> {
+    #[allow(unused)]
     pub fn select_best_eclass_mixed(&mut self, eclass: Id, depth: usize) -> usize {
         let mut best_prop: Option<Prop> = None;
         let mut best_cost: DepthArea = DepthArea::max();

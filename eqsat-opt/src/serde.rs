@@ -1,6 +1,6 @@
 use egg::*;
 use indexmap::IndexMap;
-use std::{collections::HashMap, fmt::Display, fs::File, io::{BufWriter, Seek, Write}, ops::BitAnd, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, fs::File, io::{BufWriter, Write}};
 use egraph_serialize::EnodeBits;
 
 use crate::common::{Prop,PropId};
@@ -62,6 +62,8 @@ pub fn deserialize_into_existing(
 ) {
     for (eclassid,(_,enodeid)) in extraction_result.iter() {
         let enode = &egraph_ser[enodeid];
+        //dbg!(eclassid);
+        //dbg!(&enode.children);
         // This is the current e-class ID in the domain of the saturated e-graph.
         let newid = Id::from(eclassid.class() as usize);
         // First we need to deserialize the e-node into a Prop object (ADT containing e-class IDs as children.)
@@ -102,7 +104,7 @@ pub fn deserialize_into_existing(
     //    .collect()
 }
 
-
+#[allow(unused)]
 pub fn serialize_in_mem<L, A>(egraph: EGraph<L, A>, root_eclasses: &Vec<Id>) -> egraph_serialize::EGraph
 where
     L: Language + Display,
@@ -132,7 +134,7 @@ where
     out
 }
 
-fn serialize_number_varlen(mut n: u32, writer: &mut impl Write) {
+/*fn serialize_number_varlen(mut n: u32, writer: &mut impl Write) {
     let bytecount = (4 - n.leading_zeros() / 8).max(1);
     writer.write(&[bytecount as u8]);
     // little endian
@@ -140,10 +142,10 @@ fn serialize_number_varlen(mut n: u32, writer: &mut impl Write) {
         writer.write(&[(n & 0xFF) as u8]);
         n >>= 8;
     }
-}
+}*/
 
-fn serialize_number(mut n: u32, writer: &mut impl Write) {
-    writer.write(&n.to_le_bytes());
+fn serialize_number(n: u32, writer: &mut impl Write) {
+    writer.write(&n.to_le_bytes()).unwrap();
 }
 
 pub fn serialize_to_binfile<'a, L, F, A>(egraph: &EGraph<L, A>, root_eclasses: impl ExactSizeIterator<Item=&'a Id>, out_file: &mut File, cost_function: F) -> std::io::Result<()>
@@ -169,6 +171,10 @@ where
                 metadata |= 1 << 6;
             }
             let node_string = node.to_string();
+            if node.children().len() == 0 {
+                dbg!(ecid);
+                dbg!(i);
+            }
             let ser_enode = EnodeBits {
                 eclass: ecid as u32,
                 enode: i as u32,

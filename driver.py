@@ -15,6 +15,21 @@ RUN_ABC_PATH = DRIVER_DIR + "/scripts/run_abc.sh"
 
 OUTDIR = "out"
 OPTDIR = OUTDIR + "/opt"
+DEBUG = False
+
+def run_wrap(args):
+    if DEBUG:
+        print(args)
+    return subprocess.run(args)
+
+def parse_opts(args, opts_string):
+    for opt in opts_string.split(" "):
+        if "=" in opt:
+            param, val = opt.split("=")
+            args[param] = val
+        else:
+            args[opt] = None
+
 
 class Driver:
     shared_rules = []
@@ -54,7 +69,7 @@ class Driver:
                 )
             )
         for bench in benches_l:
-            subprocess.run([CKTCONV_PATH, "eqn2seqn", f"{DRIVER_DIR}/bench/{benchset}/{bench}.eqn", f"out/{bench}.seqn"])
+            run_wrap([CKTCONV_PATH, "eqn2seqn", f"{DRIVER_DIR}/bench/{benchset}/{bench}.eqn", f"out/{bench}.seqn"])
         units = []
         for bench in benches_l:
             inseqn = f"out/{bench}.seqn"
@@ -83,7 +98,6 @@ class Driver:
     def opt_all(self):
         if not self.eqsatopt_params.get("mode"):
             raise ValueError("Driver does not have a mode set!")
-        print(self.units)
         # parallel executor thing
         def opt(in_file, in_rules, out_file):
             args = [EQSAT_OPT_PATH, in_file, out_file]
@@ -97,27 +111,29 @@ class Driver:
                 if param == "mode":
                     continue
                 args.append(f"{param}")
-                args.append(param_val)                
+                if param_val:
+                    args.append(str(param_val))                
             (mode, mode_params) = self.eqsatopt_params["mode"]
             args.append(mode)
             for (mode_param,mode_param_val) in mode_params.items():
                 args.append(f"{mode_param}")
-                args.append(mode_param_val)
-            r =subprocess.run(args)
+                if mode_param_val:
+                    args.append(str(mode_param_val))
+            r = run_wrap(args)
 
         self._run_all(opt)
 
     def verify_all(self):
         def verify(in_file, _, out_file): 
-            print(f"{in_file},", end="")
-            subprocess.run([CKTCONV_PATH, "stats", out_file])
-            print(",", end="")
-            subprocess.run([RUN_ABC_PATH, in_file, out_file])
+            print(f"{in_file},", end="", flush=True)
+            run_wrap([CKTCONV_PATH, "stats", out_file])
+            print(",", end="", flush=True)
+            run_wrap([RUN_ABC_PATH, in_file, out_file])
         self._run_all(verify)
 
     def eval_all(self):
         def eval(a,b, out_file):
-            subprocess.run([HE_EVAL_PATH, "-q", out_file])
+            run_wrap([HE_EVAL_PATH, "-q", out_file])
         self._run_all(eval)
 
 
@@ -130,14 +146,15 @@ def cli_opt(args):
 
     ruleset = None
     shared_rules = []
-    if os.path.isdir(DRIVER_DIR + "/rules/" + args.rules):
-        ruleset = args.rules
-    else:
-        if os.path.isfile(args.rules):
-            shared_rules = [args.rules]
+    if args.rules:
+        if os.path.isdir(DRIVER_DIR + "/rules/" + args.rules):
+            ruleset = args.rules
         else:
-            assert os.path.isdir(args.rules)
-            shared_rules = os.path.listdir(args.rules)
+            if os.path.isfile(args.rules):
+                shared_rules = [args.rules]
+            else:
+                assert os.path.isdir(args.rules)
+                shared_rules = os.path.listdir(args.rules)
     d = Driver.from_benchset_ruleset(benches, args.benchset, ruleset)
 
     if args.domain == "int":
@@ -150,14 +167,10 @@ def cli_opt(args):
     d.shared_rules += shared_rules
     d.eqsatopt_params["mode"] = (args.mode,{})
     if args.modeopts:
-        for modeopt in args.modeopts.split(" "):
-            param, val = modeopt.split("=")
-            d.eqsatopt_params["mode"][1][param] = val
+        parse_opts(d.eqsatopt_params["mode"][1], args.modeopts)        
     
     if args.eqsatopts:
-        for eqsatopt in args.eqsatopts.split(" "):
-            param, val = eqsatopt.split("=")
-            d.eqsatopt_params[param] = val
+        parse_opts(d.eqsatopt_params, args.eqsatopts)
 
     if args.tl:
         d.eqsatopt_params["--egg-time-limit"] = args.tl
@@ -174,17 +187,17 @@ def cli_verify(args):
     else:
         assert os.path.isdir(args.reference)
         for reference in os.listdir(args.reference):
-            references.append(reference)
+            references.append(args.reference + '/' + reference)
     opted = []
     if os.path.isfile(args.opted):
         opted.append(args.opted)
     else:
         assert os.path.isdir(args.opted)
         for opted_f in os.listdir(args.opted):
-            opted.append(opted_f)
+            opted.append(args.opted + '/' + opted_f)
     assert len(opted) == len(references)
     units = []
-    for i in range(references):
+    for i in range(len(references)):
         units.append((references[i],None,opted[i]))
     d = Driver(units, [])
     d.verify_all()
@@ -196,7 +209,7 @@ def cli_eval(args):
     else:
         assert os.path.isdir(args.eqns)
         for eqn in os.listdir(args.eqns):
-            units.append((None, None, eqn))
+            units.append((None, None, args.eqns + '/' + eqn))
     d = Driver(units, [])
     d.jobs = args.j
     d.eval_all()
@@ -204,11 +217,12 @@ def cli_eval(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="driver")
     parser.add_argument("-j", type=int, default=1, metavar="N")
+    parser.add_argument("--debug", "-d", action='store_true')
     subparsers = parser.add_subparsers(required=True)
     
     opt_parser = subparsers.add_parser("opt")
     opt_parser.add_argument("benchset", type=str)
-    opt_parser.add_argument("rules", type=str)
+    opt_parser.add_argument("--rules", type=str, default=None)
     opt_parser.add_argument("--all", action='store_true')
     opt_parser.add_argument("--bench", type=str, action='append')
     opt_parser.add_argument("--mode", type=str, default="md-multiple-iters")
@@ -228,5 +242,8 @@ if __name__ == "__main__":
     eval_parser.set_defaults(func=cli_eval)
 
     args = parser.parse_args()
+    if args.debug:
+        DEBUG = True
     args.func(args)
+    
     

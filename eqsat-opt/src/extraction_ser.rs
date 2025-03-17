@@ -1,18 +1,16 @@
 // Extraction algorithms working directly on
 // serialized data structure from egraph-serialize.
 
-use egg::Extractor;
 use egraph_serialize::{ClassId,NodeId,EGraph};
 use std::collections::{HashMap, HashSet};
 use std::f64::INFINITY;
-use std::ops::Index;
 use std::usize::MAX;
 
-use crate::common::{DepthArea, Prop, PropId};
+use crate::common::{DepthArea, PropId};
 
-use indexmap::{map::Entry, IndexMap};
+use indexmap::IndexMap;
 
-type ExtractionResult = IndexMap<ClassId,(usize,NodeId)>;
+pub type ExtractionResult = IndexMap<ClassId,(usize,NodeId)>;
 
 pub struct MixedCost {
     pub enode_opt_lookup: HashMap<NodeId, f64>,
@@ -74,6 +72,7 @@ pub fn dag_network_writer(
 ) -> String {
     // temporary network to hold nodes whose children have not been visited yet
     let mut network: Vec<String> = Vec::new();
+    let mut network_classes: Vec<ClassId> = Vec::new();
     // the network which we will output
     let mut real_network: Vec<String> = Vec::new();
     // set of visited nodes
@@ -135,8 +134,8 @@ pub fn dag_network_writer(
                 PropId::Xor => {
                     let a = enode.children[0].class();
                     let b = enode.children[1].class();
-                    netd.push_str(format!("n{} ^ n{};", a, b).as_str());
-                    //netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
+                    //netd.push_str(format!("n{} ^ n{};", a, b).as_str());
+                    netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
                 }
                 PropId::Not => {
                     let a = enode.children[0].class();
@@ -190,7 +189,8 @@ pub fn dag_network_writer(
                 }
                 // all of its children are done, so this equation can be added
                 real_network.push(network.pop().unwrap().to_string());
-                topo_cost_analysis.insert(eclass, *cost_analysis.get(&eclass).unwrap());
+                let nc = network_classes.pop().unwrap();
+                topo_cost_analysis.insert(nc, *cost_analysis.get(&nc).unwrap());
             }
         } else {
             // last child only triggers walking up the stack
@@ -202,6 +202,7 @@ pub fn dag_network_writer(
                 }
             }
             network.push(netd);
+            network_classes.push(eclass);
         }
     }
     assert!(todo_finishes.is_empty());
@@ -210,10 +211,12 @@ pub fn dag_network_writer(
 
     for (o_name, o_id) in out_net_to_eclass.iter() {
         real_network.push(format!("{} = n{};", o_name, o_id));
+        let o_id = ClassId::new(Into::<u32>::into(*o_id));
+        topo_cost_analysis.insert(o_id, *cost_analysis.get(&o_id).unwrap());
     }
 
     // yikes
-    //*cost_analysis = cost_analysis.clone().into_iter().filter(|(k,_)| eclass_seen.contains(k)).collect();
+    *cost_analysis =topo_cost_analysis;// cost_analysis.clone().into_iter().filter(|(k,_)| eclass_seen.contains(k)).collect();
     //(critical_path, 
     real_network.join("\n")
 }
