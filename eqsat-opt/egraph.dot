@@ -1,0 +1,474 @@
+digraph EGraph {
+subgraph cluster_ec0 {
+label="0";
+"0_0" [label="i0 (NP)"];
+}
+subgraph cluster_ec19 {
+label="19";
+"19_0" [label="* (NP)"];
+"19_1" [label="^"];
+}
+subgraph cluster_ec73 {
+label="73";
+"73_0" [label="* (NP)"];
+"73_1" [label="*"];
+"73_2" [label="*"];
+"73_3" [label="^"];
+}
+subgraph cluster_ec38 {
+label="38";
+"38_0" [label="* (NP)"];
+}
+subgraph cluster_ec92 {
+label="92";
+"92_0" [label="* (NP)"];
+}
+subgraph cluster_ec57 {
+label="57";
+"57_0" [label="* (P)"];
+}
+subgraph cluster_ec3 {
+label="3";
+"3_0" [label="i3 (NP)"];
+}
+subgraph cluster_ec76 {
+label="76";
+"76_0" [label="* (NP)"];
+}
+subgraph cluster_ec22 {
+label="22";
+"22_0" [label="! (NP)"];
+}
+subgraph cluster_ec41 {
+label="41";
+"41_0" [label="! (NP)"];
+}
+subgraph cluster_ec6 {
+label="6";
+"6_0" [label="i6 (NP)"];
+}
+subgraph cluster_ec25 {
+label="25";
+"25_0" [label="! (NP)"];
+}
+subgraph cluster_ec44 {
+label="44";
+"44_0" [label="* (NP)"];
+"44_1" [label="*"];
+"44_2" [label="*"];
+"44_3" [label="^"];
+}
+subgraph cluster_ec63 {
+label="63";
+"63_0" [label="* (NP)"];
+}
+subgraph cluster_ec9 {
+label="9";
+"9_0" [label="false (P)"];
+}
+subgraph cluster_ec82 {
+label="82";
+"82_0" [label="* (P)"];
+}
+subgraph cluster_ec28 {
+label="28";
+"28_0" [label="! (NP)"];
+"28_1" [label="^"];
+}
+subgraph cluster_ec47 {
+label="47";
+"47_0" [label="* (P)"];
+}
+subgraph cluster_ec12 {
+label="12";
+"12_0" [label="* (NP)"];
+"12_1" [label="^"];
+}
+subgraph cluster_ec31 {
+label="31";
+"31_0" [label="* (NP)"];
+"31_1" [label="^"];
+}
+subgraph cluster_ec69 {
+label="69";
+"69_0" [label="* (P)"];
+}
+subgraph cluster_ec15 {
+label="15";
+"15_0" [label="* (NP)"];
+"15_1" [label="^"];
+}
+subgraph cluster_ec88 {
+label="88";
+"88_0" [label="* (NP)"];
+}
+subgraph cluster_ec34 {
+label="34";
+"34_0" [label="! (NP)"];
+}
+subgraph cluster_ec53 {
+label="53";
+"53_0" [label="* (NP)"];
+}
+subgraph cluster_ec72 {
+label="72";
+"72_0" [label="* (P)"];
+}
+subgraph cluster_ec18 {
+label="18";
+"18_0" [label="! (NP)"];
+}
+subgraph cluster_ec37 {
+label="37";
+"37_0" [label="* (NP)"];
+"37_1" [label="^"];
+}
+subgraph cluster_ec2 {
+label="2";
+"2_0" [label="i2 (NP)"];
+}
+subgraph cluster_ec21 {
+label="21";
+"21_0" [label="! (NP)"];
+}
+subgraph cluster_ec40 {
+label="40";
+"40_0" [label="* (NP)"];
+}
+subgraph cluster_ec59 {
+label="59";
+"59_0" [label="* (NP)"];
+}
+subgraph cluster_ec5 {
+label="5";
+"5_0" [label="i5 (NP)"];
+}
+subgraph cluster_ec78 {
+label="78";
+"78_0" [label="* (NP)"];
+}
+subgraph cluster_ec24 {
+label="24";
+"24_0" [label="^ (NP)"];
+}
+subgraph cluster_ec43 {
+label="43";
+"43_0" [label="* (NP)"];
+"43_1" [label="*"];
+"43_2" [label="*"];
+}
+subgraph cluster_ec8 {
+label="8";
+"8_0" [label="true (P)"];
+}
+subgraph cluster_ec27 {
+label="27";
+"27_0" [label="* (NP)"];
+"27_1" [label="^"];
+}
+subgraph cluster_ec65 {
+label="65";
+"65_0" [label="* (NP)"];
+}
+subgraph cluster_ec11 {
+label="11";
+"11_0" [label="! (NP)"];
+}
+subgraph cluster_ec84 {
+label="84";
+"84_0" [label="* (NP)"];
+}
+subgraph cluster_ec30 {
+label="30";
+"30_0" [label="! (NP)"];
+"30_1" [label="^"];
+}
+subgraph cluster_ec49 {
+label="49";
+"49_0" [label="* (P)"];
+}
+subgraph cluster_ec14 {
+label="14";
+"14_0" [label="! (NP)"];
+}
+subgraph cluster_ec33 {
+label="33";
+"33_0" [label="* (NP)"];
+}
+subgraph cluster_ec71 {
+label="71";
+"71_0" [label="* (P)"];
+}
+subgraph cluster_ec17 {
+label="17";
+"17_0" [label="! (NP)"];
+}
+subgraph cluster_ec90 {
+label="90";
+"90_0" [label="* (NP)"];
+}
+subgraph cluster_ec36 {
+label="36";
+"36_0" [label="! (NP)"];
+}
+subgraph cluster_ec55 {
+label="55";
+"55_0" [label="* (P)"];
+}
+subgraph cluster_ec1 {
+label="1";
+"1_0" [label="i1 (NP)"];
+}
+subgraph cluster_ec74 {
+label="74";
+"74_0" [label="* (NP)"];
+}
+subgraph cluster_ec20 {
+label="20";
+"20_0" [label="* (NP)"];
+"20_1" [label="*"];
+"20_2" [label="*"];
+}
+subgraph cluster_ec39 {
+label="39";
+"39_0" [label="! (NP)"];
+}
+subgraph cluster_ec4 {
+label="4";
+"4_0" [label="i4 (NP)"];
+}
+subgraph cluster_ec23 {
+label="23";
+"23_0" [label="* (NP)"];
+"23_1" [label="^"];
+}
+subgraph cluster_ec42 {
+label="42";
+"42_0" [label="* (NP)"];
+"42_1" [label="^"];
+}
+subgraph cluster_ec61 {
+label="61";
+"61_0" [label="* (P)"];
+}
+subgraph cluster_ec7 {
+label="7";
+"7_0" [label="i7 (NP)"];
+}
+subgraph cluster_ec80 {
+label="80";
+"80_0" [label="* (NP)"];
+}
+subgraph cluster_ec26 {
+label="26";
+"26_0" [label="! (NP)"];
+"26_1" [label="^"];
+}
+subgraph cluster_ec45 {
+label="45";
+"45_0" [label="* (P)"];
+"45_1" [label="*"];
+"45_2" [label="*"];
+"45_3" [label="^"];
+}
+subgraph cluster_ec10 {
+label="10";
+"10_0" [label="! (NP)"];
+}
+subgraph cluster_ec29 {
+label="29";
+"29_0" [label="! (NP)"];
+"29_1" [label="^"];
+}
+subgraph cluster_ec67 {
+label="67";
+"67_0" [label="* (P)"];
+}
+subgraph cluster_ec13 {
+label="13";
+"13_0" [label="! (NP)"];
+}
+subgraph cluster_ec86 {
+label="86";
+"86_0" [label="* (NP)"];
+}
+subgraph cluster_ec32 {
+label="32";
+"32_0" [label="! (NP)"];
+"32_1" [label="^"];
+}
+subgraph cluster_ec51 {
+label="51";
+"51_0" [label="* (NP)"];
+}
+subgraph cluster_ec16 {
+label="16";
+"16_0" [label="* (NP)"];
+"16_1" [label="*"];
+"16_2" [label="*"];
+}
+subgraph cluster_ec35 {
+label="35";
+"35_0" [label="* (NP)"];
+}
+"19_0" -> "17_0" [lhead=cluster_ec17];
+"19_0" -> "18_0" [lhead=cluster_ec18];
+"19_1" -> "18_0" [lhead=cluster_ec18];
+"19_1" -> "76_0" [lhead=cluster_ec76];
+"73_0" -> "24_0" [lhead=cluster_ec24];
+"73_0" -> "45_0" [lhead=cluster_ec45];
+"73_1" -> "44_0" [lhead=cluster_ec44];
+"73_1" -> "59_0" [lhead=cluster_ec59];
+"73_2" -> "47_0" [lhead=cluster_ec47];
+"73_2" -> "28_0" [lhead=cluster_ec28];
+"73_3" -> "71_0" [lhead=cluster_ec71];
+"73_3" -> "72_0" [lhead=cluster_ec72];
+"38_0" -> "0_0" [lhead=cluster_ec0];
+"38_0" -> "1_0" [lhead=cluster_ec1];
+"92_0" -> "26_0" [lhead=cluster_ec26];
+"92_0" -> "16_0" [lhead=cluster_ec16];
+"57_0" -> "42_0" [lhead=cluster_ec42];
+"57_0" -> "36_0" [lhead=cluster_ec36];
+"76_0" -> "18_0" [lhead=cluster_ec18];
+"76_0" -> "4_0" [lhead=cluster_ec4];
+"22_0" -> "7_0" [lhead=cluster_ec7];
+"41_0" -> "40_0" [lhead=cluster_ec40];
+"25_0" -> "16_0" [lhead=cluster_ec16];
+"44_0" -> "32_0" [lhead=cluster_ec32];
+"44_0" -> "43_0" [lhead=cluster_ec43];
+"44_1" -> "42_0" [lhead=cluster_ec42];
+"44_1" -> "63_0" [lhead=cluster_ec63];
+"44_2" -> "51_0" [lhead=cluster_ec51];
+"44_2" -> "37_0" [lhead=cluster_ec37];
+"44_3" -> "43_0" [lhead=cluster_ec43];
+"44_3" -> "86_0" [lhead=cluster_ec86];
+"63_0" -> "37_0" [lhead=cluster_ec37];
+"63_0" -> "32_0" [lhead=cluster_ec32];
+"82_0" -> "44_0" [lhead=cluster_ec44];
+"82_0" -> "27_0" [lhead=cluster_ec27];
+"28_0" -> "27_0" [lhead=cluster_ec27];
+"28_1" -> "19_0" [lhead=cluster_ec19];
+"28_1" -> "92_0" [lhead=cluster_ec92];
+"47_0" -> "24_0" [lhead=cluster_ec24];
+"47_0" -> "44_0" [lhead=cluster_ec44];
+"12_0" -> "10_0" [lhead=cluster_ec10];
+"12_0" -> "11_0" [lhead=cluster_ec11];
+"12_1" -> "11_0" [lhead=cluster_ec11];
+"12_1" -> "88_0" [lhead=cluster_ec88];
+"31_0" -> "29_0" [lhead=cluster_ec29];
+"31_0" -> "30_0" [lhead=cluster_ec30];
+"31_1" -> "30_0" [lhead=cluster_ec30];
+"31_1" -> "90_0" [lhead=cluster_ec90];
+"69_0" -> "39_0" [lhead=cluster_ec39];
+"69_0" -> "37_0" [lhead=cluster_ec37];
+"15_0" -> "13_0" [lhead=cluster_ec13];
+"15_0" -> "14_0" [lhead=cluster_ec14];
+"15_1" -> "14_0" [lhead=cluster_ec14];
+"15_1" -> "80_0" [lhead=cluster_ec80];
+"88_0" -> "11_0" [lhead=cluster_ec11];
+"88_0" -> "0_0" [lhead=cluster_ec0];
+"34_0" -> "33_0" [lhead=cluster_ec33];
+"53_0" -> "19_0" [lhead=cluster_ec19];
+"53_0" -> "15_0" [lhead=cluster_ec15];
+"72_0" -> "45_0" [lhead=cluster_ec45];
+"72_0" -> "20_0" [lhead=cluster_ec20];
+"18_0" -> "5_0" [lhead=cluster_ec5];
+"37_0" -> "34_0" [lhead=cluster_ec34];
+"37_0" -> "36_0" [lhead=cluster_ec36];
+"37_1" -> "36_0" [lhead=cluster_ec36];
+"37_1" -> "84_0" [lhead=cluster_ec84];
+"21_0" -> "6_0" [lhead=cluster_ec6];
+"40_0" -> "2_0" [lhead=cluster_ec2];
+"40_0" -> "3_0" [lhead=cluster_ec3];
+"59_0" -> "28_0" [lhead=cluster_ec28];
+"59_0" -> "24_0" [lhead=cluster_ec24];
+"78_0" -> "41_0" [lhead=cluster_ec41];
+"78_0" -> "38_0" [lhead=cluster_ec38];
+"24_0" -> "20_0" [lhead=cluster_ec20];
+"24_0" -> "23_0" [lhead=cluster_ec23];
+"43_0" -> "37_0" [lhead=cluster_ec37];
+"43_0" -> "42_0" [lhead=cluster_ec42];
+"43_1" -> "41_0" [lhead=cluster_ec41];
+"43_1" -> "69_0" [lhead=cluster_ec69];
+"43_2" -> "57_0" [lhead=cluster_ec57];
+"43_2" -> "34_0" [lhead=cluster_ec34];
+"27_0" -> "25_0" [lhead=cluster_ec25];
+"27_0" -> "26_0" [lhead=cluster_ec26];
+"27_1" -> "26_0" [lhead=cluster_ec26];
+"27_1" -> "92_0" [lhead=cluster_ec92];
+"65_0" -> "17_0" [lhead=cluster_ec17];
+"65_0" -> "16_0" [lhead=cluster_ec16];
+"11_0" -> "1_0" [lhead=cluster_ec1];
+"84_0" -> "36_0" [lhead=cluster_ec36];
+"84_0" -> "33_0" [lhead=cluster_ec33];
+"30_0" -> "15_0" [lhead=cluster_ec15];
+"30_1" -> "3_0" [lhead=cluster_ec3];
+"30_1" -> "80_0" [lhead=cluster_ec80];
+"49_0" -> "28_0" [lhead=cluster_ec28];
+"49_0" -> "43_0" [lhead=cluster_ec43];
+"14_0" -> "3_0" [lhead=cluster_ec3];
+"33_0" -> "6_0" [lhead=cluster_ec6];
+"33_0" -> "7_0" [lhead=cluster_ec7];
+"71_0" -> "45_0" [lhead=cluster_ec45];
+"71_0" -> "23_0" [lhead=cluster_ec23];
+"17_0" -> "4_0" [lhead=cluster_ec4];
+"90_0" -> "30_0" [lhead=cluster_ec30];
+"90_0" -> "12_0" [lhead=cluster_ec12];
+"36_0" -> "35_0" [lhead=cluster_ec35];
+"55_0" -> "15_0" [lhead=cluster_ec15];
+"55_0" -> "11_0" [lhead=cluster_ec11];
+"74_0" -> "22_0" [lhead=cluster_ec22];
+"74_0" -> "6_0" [lhead=cluster_ec6];
+"20_0" -> "16_0" [lhead=cluster_ec16];
+"20_0" -> "19_0" [lhead=cluster_ec19];
+"20_1" -> "18_0" [lhead=cluster_ec18];
+"20_1" -> "65_0" [lhead=cluster_ec65];
+"20_2" -> "53_0" [lhead=cluster_ec53];
+"20_2" -> "12_0" [lhead=cluster_ec12];
+"39_0" -> "38_0" [lhead=cluster_ec38];
+"23_0" -> "21_0" [lhead=cluster_ec21];
+"23_0" -> "22_0" [lhead=cluster_ec22];
+"23_1" -> "22_0" [lhead=cluster_ec22];
+"23_1" -> "74_0" [lhead=cluster_ec74];
+"42_0" -> "39_0" [lhead=cluster_ec39];
+"42_0" -> "41_0" [lhead=cluster_ec41];
+"42_1" -> "41_0" [lhead=cluster_ec41];
+"42_1" -> "78_0" [lhead=cluster_ec78];
+"61_0" -> "32_0" [lhead=cluster_ec32];
+"61_0" -> "28_0" [lhead=cluster_ec28];
+"80_0" -> "14_0" [lhead=cluster_ec14];
+"80_0" -> "2_0" [lhead=cluster_ec2];
+"26_0" -> "19_0" [lhead=cluster_ec19];
+"26_1" -> "5_0" [lhead=cluster_ec5];
+"26_1" -> "76_0" [lhead=cluster_ec76];
+"45_0" -> "28_0" [lhead=cluster_ec28];
+"45_0" -> "44_0" [lhead=cluster_ec44];
+"45_1" -> "43_0" [lhead=cluster_ec43];
+"45_1" -> "61_0" [lhead=cluster_ec61];
+"45_2" -> "49_0" [lhead=cluster_ec49];
+"45_2" -> "32_0" [lhead=cluster_ec32];
+"45_3" -> "44_0" [lhead=cluster_ec44];
+"45_3" -> "82_0" [lhead=cluster_ec82];
+"10_0" -> "0_0" [lhead=cluster_ec0];
+"29_0" -> "12_0" [lhead=cluster_ec12];
+"29_1" -> "1_0" [lhead=cluster_ec1];
+"29_1" -> "88_0" [lhead=cluster_ec88];
+"67_0" -> "13_0" [lhead=cluster_ec13];
+"67_0" -> "12_0" [lhead=cluster_ec12];
+"13_0" -> "2_0" [lhead=cluster_ec2];
+"86_0" -> "43_0" [lhead=cluster_ec43];
+"86_0" -> "31_0" [lhead=cluster_ec31];
+"32_0" -> "31_0" [lhead=cluster_ec31];
+"32_1" -> "15_0" [lhead=cluster_ec15];
+"32_1" -> "90_0" [lhead=cluster_ec90];
+"51_0" -> "32_0" [lhead=cluster_ec32];
+"51_0" -> "42_0" [lhead=cluster_ec42];
+"16_0" -> "12_0" [lhead=cluster_ec12];
+"16_0" -> "15_0" [lhead=cluster_ec15];
+"16_1" -> "14_0" [lhead=cluster_ec14];
+"16_1" -> "67_0" [lhead=cluster_ec67];
+"16_2" -> "55_0" [lhead=cluster_ec55];
+"16_2" -> "10_0" [lhead=cluster_ec10];
+"35_0" -> "4_0" [lhead=cluster_ec4];
+"35_0" -> "5_0" [lhead=cluster_ec5];
+}

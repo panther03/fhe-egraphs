@@ -159,7 +159,7 @@ impl TermDag {
     }
 }
 
-pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
+pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> HashMap<NodeId, f64> {
     let mut keep_going = true;
 
     let nodes = egraph.nodes.clone();
@@ -198,19 +198,16 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
     }
 
     
-    //let mut node_to_cost: HashMap<NodeId, f64> = HashMap::new();
-    //for (node_id, node) in &nodes {
-    //    let cost = best_in_class.get(&node.eclass).unwrap_or(&MAX);
-    //    node_to_cost.insert(node_id.clone(), *cost as f64);
-    //}
-    //node_to_cost
-
-    let mut result: ExtractionResult = IndexMap::new();
-    for (class, term) in best_in_class {
-        result.insert(class.clone(), (0, termdag.info[term].node.clone()));
+    let mut node_to_cost: HashMap<NodeId, f64> = HashMap::new();
+    for (node_id, node) in &nodes {
+        let cost = best_in_class.get(&node.eclass).unwrap_or(&MAX);
+        node_to_cost.insert(node_id.clone(), *cost as f64);
     }
-    dbg!(result.get(&ClassId::new(30)));
-    dbg!(result.get(&ClassId::new(50)));
-    dbg!(result.get(&ClassId::new(20)));
-    result
+    node_to_cost
+
+    //let mut result: ExtractionResult = IndexMap::new();
+    //for (class, term) in best_in_class {
+    //    result.insert(class.clone(), (0, termdag.info[term].node.clone()));
+    //}
+    //result
 }

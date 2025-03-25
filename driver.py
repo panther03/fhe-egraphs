@@ -5,7 +5,7 @@ import sys
 import argparse
 import concurrent.futures
 
-sys.tracebacklimit = 1
+#sys.tracebacklimit = 1
 
 DRIVER_DIR = str(pathlib.Path(__file__).parent.resolve()) + "/"
 EQSAT_OPT_PATH = DRIVER_DIR + "/eqsat-opt/target/release/eqsat-opt"
@@ -14,7 +14,7 @@ HE_EVAL_PATH = DRIVER_DIR + "/he-eval/build/he-eval"
 RUN_ABC_PATH = DRIVER_DIR + "/scripts/run_abc.sh"
 
 OUTDIR = "out"
-OPTDIR = OUTDIR + "/opt"
+OPTDIR = lambda OUTDIR: OUTDIR + "/opt"
 DEBUG = False
 
 def run_wrap(args):
@@ -51,15 +51,22 @@ class Driver:
         return self
 
     def with_esyn_rules(self):
-        self.shared_rules.append("f{DRIVER_DIR}/rules/esyn.rules")
+        self.shared_rules.append(f"{DRIVER_DIR}/rules/esyn.rules")
+        return self
+    
+    def disable_comm_matching(self):
+        self.eqsatopt_params["--no-comm-matching"] = None
+        self.shared_rules.append(f"{DRIVER_DIR}/rules/comm.rules")
         return self
 
     @classmethod
-    def from_benchset_ruleset(cls, benches, benchset, ruleset=None):
-        if not os.path.exists(OUTDIR):
-            os.mkdir(OUTDIR)
-            if not os.path.exists(OPTDIR):
-                os.mkdir(OPTDIR)
+    def from_benchset_ruleset(cls, benches, benchset, ruleset=None, outdir=None):
+        if outdir is None:
+            outdir = OUTDIR
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
+        if not os.path.exists(OPTDIR(outdir)):
+            os.mkdir(OPTDIR(outdir))
         benches_l = benches
         if benches == "all":
             benches_l = list(
@@ -69,15 +76,15 @@ class Driver:
                 )
             )
         for bench in benches_l:
-            run_wrap([CKTCONV_PATH, "eqn2seqn", f"{DRIVER_DIR}/bench/{benchset}/{bench}.eqn", f"out/{bench}.seqn"])
+            run_wrap([CKTCONV_PATH, "eqn2seqn", f"{DRIVER_DIR}/bench/{benchset}/{bench}.eqn", f"{outdir}/{bench}.seqn"])
         units = []
         for bench in benches_l:
-            inseqn = f"out/{bench}.seqn"
+            inseqn = f"{outdir}/{bench}.seqn"
             if ruleset:
                 inrules = [f"{DRIVER_DIR}/rules/{ruleset}/{bench}.rules"]
             else: 
                 inrules = []
-            outeqn = f"out/opt/{bench}.eqn"
+            outeqn = f"{OPTDIR(outdir)}/{bench}.eqn"
             units.append((inseqn, inrules, outeqn))
         driver = cls(units, [])
         return driver
@@ -124,12 +131,15 @@ class Driver:
         self._run_all(opt)
 
     def verify_all(self):
+        j = self.jobs
+        self.jobs = 1
         def verify(in_file, _, out_file): 
             print(f"{in_file},", end="", flush=True)
             run_wrap([CKTCONV_PATH, "stats", out_file])
             print(",", end="", flush=True)
             run_wrap([RUN_ABC_PATH, in_file, out_file])
         self._run_all(verify)
+        self.jobs = j
 
     def eval_all(self):
         def eval(a,b, out_file):
@@ -155,7 +165,7 @@ def cli_opt(args):
             else:
                 assert os.path.isdir(args.rules)
                 shared_rules = os.path.listdir(args.rules)
-    d = Driver.from_benchset_ruleset(benches, args.benchset, ruleset)
+    d = Driver.from_benchset_ruleset(benches, args.benchset, ruleset, args.output)
 
     if args.domain == "int":
         d = d.with_arith_rules()
@@ -222,6 +232,7 @@ if __name__ == "__main__":
     
     opt_parser = subparsers.add_parser("opt")
     opt_parser.add_argument("benchset", type=str)
+    opt_parser.add_argument("--output", "-o", type=str, default=None)
     opt_parser.add_argument("--rules", type=str, default=None)
     opt_parser.add_argument("--all", action='store_true')
     opt_parser.add_argument("--bench", type=str, action='append')
@@ -234,11 +245,11 @@ if __name__ == "__main__":
 
     verify_parser = subparsers.add_parser("verify")
     verify_parser.add_argument("reference", type=str)
-    verify_parser.add_argument("opted", type=str, default="out/opt")
+    verify_parser.add_argument("opted", type=str, default=OPTDIR(OUTDIR))
     verify_parser.set_defaults(func=cli_verify)
 
     eval_parser = subparsers.add_parser("eval")
-    eval_parser.add_argument("eqns", type=str, default="out/opt")
+    eval_parser.add_argument("eqns", type=str, default=OPTDIR(OUTDIR))
     eval_parser.set_defaults(func=cli_eval)
 
     args = parser.parse_args()

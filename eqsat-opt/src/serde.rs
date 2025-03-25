@@ -17,27 +17,27 @@ pub fn decode_op_string(op: &str) -> PropId {
     }
 }
 
-fn decode_enode(new_to_old: &mut HashMap<Id, Id>, enode: &egraph_serialize::Node) -> Prop {
+pub fn decode_enode(new_to_old: &HashMap<Id, Id>, enode: &egraph_serialize::Node) -> Option<Prop> {
     match crate::serde::decode_op_string(&enode.op) {
         PropId::And => {
             let a = Id::from(enode.children[0].class() as usize);
             let b = Id::from(enode.children[1].class() as usize);
-            Prop::And([*new_to_old.get(&a).unwrap(), *new_to_old.get(&b).unwrap()])
+            Some(Prop::And([*new_to_old.get(&a)?, *new_to_old.get(&b)?]))
         }
         PropId::Xor => {
             let a = Id::from(enode.children[0].class() as usize);
             let b = Id::from(enode.children[1].class() as usize);
-            Prop::Xor([*new_to_old.get(&a).unwrap(), *new_to_old.get(&b).unwrap()])
+            Some(Prop::Xor([*new_to_old.get(&a)?, *new_to_old.get(&b)?]))
         }
         PropId::Not => {
             let a = Id::from(enode.children[0].class() as usize);
-            Prop::Not(*new_to_old.get(&a).unwrap())
+            Some(Prop::Not(*new_to_old.get(&a)?))
         }
         PropId::Lit => {
-            Prop::Bool(enode.op.as_str() == "true")
+            Some(Prop::Bool(enode.op.as_str() == "true"))
         }
         PropId::Sym => {
-            Prop::Symbol(enode.op.clone().into())
+            Some(Prop::Symbol(enode.op.clone().into()))
         }
     }
 }
@@ -73,7 +73,7 @@ pub fn deserialize_into_existing(
         // that exist in this e-graph.
         // Because it is topologically sorted, we are sure the children are all in the
         // e-graph. The node is safe to add.
-        let id = egraph.add(decode_enode(new_to_old, enode));
+        let id = egraph.add(decode_enode(new_to_old, enode).unwrap());
         // We may be adding a node that was part of a class that also exists in the original.
         // In this case, we should union the original class with the class we just added.
         match new_to_old.get(&newid) {
@@ -165,16 +165,13 @@ where
         for (i, node) in class.nodes.iter().enumerate() {
             let mut metadata: u8 = node.children().len() as u8;
             if metadata >= 32 {
+                continue;
                 panic!();
             }
             if cost_function(node) > 0.0 {
                 metadata |= 1 << 6;
             }
             let node_string = node.to_string();
-            if node.children().len() == 0 {
-                dbg!(ecid);
-                dbg!(i);
-            }
             let ser_enode = EnodeBits {
                 eclass: ecid as u32,
                 enode: i as u32,

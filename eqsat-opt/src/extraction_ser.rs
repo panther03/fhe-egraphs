@@ -1,12 +1,15 @@
 // Extraction algorithms working directly on
 // serialized data structure from egraph-serialize.
 
-use egraph_serialize::{ClassId,NodeId,EGraph};
+use egraph_serialize::{ClassId, EGraph, Node, NodeId};
+use ordered_float::NotNan;
 use std::collections::{HashMap, HashSet};
 use std::f64::INFINITY;
+use std::path::Path;
 use std::usize::MAX;
 
 use crate::common::{DepthArea, PropId};
+use crate::md_slack::MdBounds;
 
 use indexmap::IndexMap;
 
@@ -219,4 +222,74 @@ pub fn dag_network_writer(
     *cost_analysis =topo_cost_analysis;// cost_analysis.clone().into_iter().filter(|(k,_)| eclass_seen.contains(k)).collect();
     //(critical_path, 
     real_network.join("\n")
+}
+
+pub fn ser_egraph_from_file(infile: &str) -> (EGraph,Vec<ClassId>) {
+    let mut egraph = EGraph::default();
+    let in_egg = std::fs::read_to_string(infile).unwrap();
+    let mut egg_lines = in_egg.lines();
+    let num_classes: usize = egg_lines.next().unwrap().parse().unwrap();
+    let out_classes: Vec<ClassId> = egg_lines.next().unwrap().split(" ").map(|on| ClassId::new(on.parse().unwrap())).collect();
+    let mut node_cnt: HashMap<usize, usize> = HashMap::new();
+    for i in 0..num_classes {
+        node_cnt.insert(i, 0);
+    }
+
+    for line in egg_lines {
+        let mut line_split = line.split(" ");
+        let class: usize = line_split.next().unwrap().parse().unwrap();
+        let cost: usize = line_split.next().unwrap().parse().unwrap();
+        let mut children: Vec<NodeId> = Vec::new();
+        for child in line_split {
+            children.push(NodeId::new(0, child.parse().unwrap()));
+        }
+        let node_data = Node {
+            op: String::from(if cost == 0 { "^" } else { "*"}), 
+            children: children,
+            eclass: ClassId::new(class as u32),
+            cost: NotNan::new(cost as f64).unwrap(),
+            subsumed: false
+        };
+        let nid = *node_cnt.get(&class).unwrap();
+        node_cnt.insert(class, nid + 1);
+        egraph.add_node(NodeId::new(nid as u32, class as u32), node_data);
+    }
+    (egraph, out_classes)
+}
+
+pub fn ser_egraph_to_dot<T: std::fmt::Display>(egraph: &EGraph, annot: &HashMap<NodeId, T>, outfile: &str) {
+    // rankdir=TB;\ncompound=true;\nnewrank=true;\n
+    let mut dot = String::from("digraph EGraph {\n");
+    let mut connections = String::new();
+    
+    for (cid, class) in egraph.classes() {
+        dot.push_str(format!("subgraph cluster_ec{} {{\nlabel=\"{}\";\n", cid, cid).as_str());
+        for node in &class.nodes {
+            let node_data = &egraph[node];
+            
+            //let inv_md = if let Some(bounds_unwrap) = bounds {
+            //    let flat_node = bounds_unwrap.flat_node_lookup.get(node);
+            //    if let Some(flat_node) = flat_node {
+            //        bounds_unwrap.node_data[*flat_node].inv_md
+            //      } else {
+            //        0
+            //    }
+            //} else {
+            //    0
+            //};
+            dot.push_str(format!("\"{}_{}\" [label=\"{}", node.class(), node.node(), node_data.op).as_str());
+
+            if let Some(node_annot) = annot.get(node) {
+                dot.push_str(format!(" ({})", node_annot).as_str());
+            }
+            dot.push_str("\"];\n");
+            for child in &node_data.children {
+                connections.push_str(format!("\"{}_{}\" -> \"{}_{}\" [lhead=cluster_ec{}];\n", node.class(), node.node(), child.class(), child.node(), child.class()).as_str());
+            }
+        }
+        dot.push_str("}\n");
+    }
+    dot.push_str(&connections);
+    dot.push('}');
+    std::fs::write(outfile, dot).unwrap();
 }
