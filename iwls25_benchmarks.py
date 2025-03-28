@@ -5,7 +5,7 @@ import time
 from driver import *
 
 # Pool extraction disabled
-# Strict 150 second timeout
+# Strict 300 second timeout
 global_params = {
     "mode": ("md-multiple-iters", ({"--iters": "1", "--num-candidates": "0"})),
     "--egg-time-limit": "300",

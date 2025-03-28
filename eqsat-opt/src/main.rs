@@ -693,7 +693,7 @@ fn main() {
         };
 
     //let opter = EqsatOptimizer::new(rules, out_net_to_eclass).with_timeout(timeout_seconds);
-    let mut opter = EqsatOptimizer::new(
+    let opter = EqsatOptimizer::new(
         rules,
         out_net_to_eclass,
         OptimizerParams {
@@ -732,14 +732,13 @@ fn main() {
                     .and_then(|x| x.parse::<usize>().ok())
                     .unwrap_or(1)
             });
-            let (network_c, stats_c, he_cost_c) = opter.md_multiple_iters(start_egraph.clone(), iters, alpha, num_candidates, true);
-            //let (network_nc, stats_nc, he_cost_nc) = opter.md_multiple_iters(start_egraph, iters, alpha, num_candidates, false);
-            (network_c, stats_c)
-            //if he_cost_c < he_cost_nc {
-            //    (network_c, stats_c)
-            //} else {
-            //    (network_nc, stats_nc)
-            //}
+            let (network_c, stats_c, he_cost_c) = opter.clone().md_multiple_iters(start_egraph.clone(), iters, alpha, num_candidates, true);
+            let (network_nc, stats_nc, he_cost_nc) = opter.md_multiple_iters(start_egraph, iters, alpha, num_candidates, false);
+            if he_cost_c < he_cost_nc {
+                (network_c, stats_c)
+            } else {
+                (network_nc, stats_nc)
+            }
         }
         FlowMode::MdVanillaFlow => opter.md_vanilla_flow(start_egraph, concat_node.unwrap()),
         FlowMode::EmptyFlow => (opter.empty_flow(start_egraph),FlowStats {
