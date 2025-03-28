@@ -20,6 +20,6 @@ class RegisterAllocator {
     public:
         int colors = 0;
 
-        RegisterAllocator (vector<string> &inputlist, vector<string> &outputlist, vector<tuple<string, Gate*>> &eqnlist, bool quiet);
+        RegisterAllocator (vector<string> &inputlist, vector<string> &outputlist, vector<pair<string, Gate*>> &eqnlist, bool quiet);
         int net2reg(const string &net) const;
 };

@@ -5,8 +5,9 @@
 #include <stdint.h>
 
 class GateInp
-{
+{   
     public:
+        bool is_gate;
         enum InpType
         {
             Const,
@@ -21,17 +22,19 @@ class GateInp
 class Gate
 {
     public:
+        bool is_gate;
         enum Op
         {
             AND,
             XOR,
             OR,
-            WIRE
+            WIRE,
+            UNSAFE_OR
         };
         Gate();
 
+
         Op op;
-        
         GateInp* left;
         GateInp* right;
 };

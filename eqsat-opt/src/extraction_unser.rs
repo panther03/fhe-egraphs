@@ -26,14 +26,14 @@ impl egg::CostFunction<Prop> for MultComplexity {
     }
 }
 
-impl<N: Analysis<Prop>> LpCostFunction<Prop, N> for MultComplexity {
-    fn node_cost(&mut self, _egraph: &EGraph<Prop, N>, _eclass: Id, enode: &Prop) -> f64 {
-        match enode {
-            Prop::And(..) => 1.0,
-            _ => 0.0,
-        }
-    }
-}
+//impl<N: Analysis<Prop>> LpCostFunction<Prop, N> for MultComplexity {
+//    fn node_cost(&mut self, _egraph: &EGraph<Prop, N>, _eclass: Id, enode: &Prop) -> f64 {
+//        match enode {
+//            Prop::And(..) => 1.0,
+//            _ => 0.0,
+//        }
+//    }
+//}
 
 pub struct MultDepth;
 impl egg::CostFunction<Prop> for MultDepth {

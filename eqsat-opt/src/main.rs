@@ -3,20 +3,22 @@ use egg::{rewrite as rw, *};
 use egraph_serialize::NodeId;
 use extraction_unser::MultDepth;
 use indexmap::IndexMap;
+use rand::Rng;
+use rand::SeedableRng;
 use serde::deserialize_into_existing;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::Seek;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
 
 mod common;
 mod extraction_ser;
 mod extraction_unser;
 mod global_greedy_dag;
 //mod md_mc_balanced_extract;
-mod serde;
 mod md_slack;
+mod serde;
 mod traverse;
 
 use common::Prop;
@@ -134,14 +136,16 @@ fn egraph_from_seqn(
 //////////////////////////
 // Equality Saturation //
 ////////////////////////
+#[derive(Clone)]
 struct OptimizerParams {
     time_limit: u64,
     node_limit: usize,
     iter_limit: usize,
     comm_matching: bool,
-    strict_deadlines: bool
+    strict_deadlines: bool,
 }
 
+#[derive(Clone)]
 struct EqsatOptimizer {
     rules: Vec<Rewrite<Prop, ()>>,
     out_net_to_eclass: IndexMap<String, Id>,
@@ -183,6 +187,55 @@ where
     }
 }
 
+fn lock_in_random_nodes(
+    egraph: &egraph_serialize::EGraph,
+    cycle_classes: &HashSet<egraph_serialize::ClassId>,
+    alpha: f64,
+    seed: u64,
+) -> HashMap<egraph_serialize::ClassId, NodeId> {
+    let mut locked = HashMap::new();
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+    for (cid, class) in egraph.classes() {
+        if !cycle_classes.contains(cid) && rng.random_range(0.0..1.0) > alpha {
+            let ind = rng.random_range(0..class.nodes.len());
+            locked.insert(*cid, class.nodes[ind]);
+        }
+    }
+    locked
+}
+
+fn pool_extract(
+    egraph: &egraph_serialize::EGraph,
+    old_egraph: &egraph_serialize::EGraph,
+    old_out_net_to_eclass: &IndexMap<String, Id>,
+    out_net_to_eclass: &IndexMap<String, Id>,
+    cycle_classes: &HashSet<egraph_serialize::ClassId>,
+    num_candidates: usize,
+    alpha: f64,
+) -> (u64,String) {
+    // TODO: actually 1st candidate should be the original network
+    let mut cost_analysis =
+        global_greedy_dag::mc_extract(old_egraph, &old_egraph.root_eclasses, HashMap::new());
+    let (mut best_cost, mut best_network) =
+        extraction_ser::dag_network_writer(old_egraph, &mut cost_analysis, old_out_net_to_eclass);
+
+    for i in 0..num_candidates + 1 {
+        let alpha = if i == 0 { 1.0 } else { alpha };
+        let locked = lock_in_random_nodes(egraph, cycle_classes, alpha, i as u64);
+        let mut cost_analysis =
+            global_greedy_dag::mc_extract(egraph, &egraph.root_eclasses, locked);
+        let (he_cost, ntk) =
+            extraction_ser::dag_network_writer(egraph, &mut cost_analysis, out_net_to_eclass);
+
+        //println!("Candidate {i}: HE cost {}", he_cost);
+        if he_cost < best_cost {
+            best_cost = he_cost;
+            best_network = ntk;
+        }
+    }
+    (best_cost, best_network)
+}
+
 impl EqsatOptimizer {
     fn new(
         rules: Vec<Rewrite<Prop, ()>>,
@@ -201,16 +254,26 @@ impl EqsatOptimizer {
         &mut self,
         new_egraph: EGraph<Prop, ()>,
         old_egraph: Option<&EGraph<Prop, ()>>,
+        comm_matching_override: bool
     ) -> EGraph<Prop, ()> {
         let runner = Runner::default()
             .with_egraph(new_egraph)
             .with_time_limit(Duration::from_secs(self.params.time_limit))
             .with_node_limit(self.params.node_limit)
             .with_iter_limit(self.params.iter_limit);
-            //.with_scheduler(BackoffScheduler::default().with_initial_match_limit(100))
-        let runner = if self.params.comm_matching { runner } else { runner.without_comm_matching() };
-        let runner = if self.params.strict_deadlines { runner.with_strict_deadline() } else { runner };
+        //.with_scheduler(BackoffScheduler::default().with_initial_match_limit(100))
         
+        let runner = if comm_matching_override {
+            runner
+        } else {
+            runner.without_comm_matching()
+        };
+        let runner = if self.params.strict_deadlines {
+            runner.with_strict_deadline()
+        } else {
+            runner
+        };
+
         let runner = runner.run(self.rules.iter());
 
         // Remap output net IDs.
@@ -230,12 +293,12 @@ impl EqsatOptimizer {
         runner.egraph
     }
 
-    
+    /*
 
     fn mc_ilp_flow(mut self, initial_egraph: EGraph<Prop, ()>) -> (String, FlowStats) {
         let start_time = Instant::now();
         // saturation
-        let sat_egraph = self.saturate(initial_egraph, None);
+        let sat_egraph = self.saturate(initial_egraph, None, true);
         let sat_time = Instant::now() - start_time;
 
         // extraction
@@ -263,7 +326,7 @@ impl EqsatOptimizer {
                 extract_time,
             },
         )
-    }
+    } */
 
     fn md_explain_flow(
         mut self,
@@ -273,7 +336,7 @@ impl EqsatOptimizer {
         let start_time = Instant::now();
         // saturation
         let start_expr = initial_egraph.id_to_expr(concat_node);
-        let mut sat_egraph = self.saturate(initial_egraph, None);
+        let mut sat_egraph = self.saturate(initial_egraph, None, true);
         let sat_time = Instant::now() - start_time;
 
         // extraction
@@ -301,7 +364,7 @@ impl EqsatOptimizer {
     ) -> (String, FlowStats) {
         let start_time = Instant::now();
         // saturation
-        let sat_egraph = self.saturate(initial_egraph, None);
+        let sat_egraph = self.saturate(initial_egraph, None, true);
         let sat_time = Instant::now() - start_time;
 
         // extraction
@@ -359,16 +422,25 @@ impl EqsatOptimizer {
         mut self,
         initial_egraph: EGraph<Prop, ()>,
         iters: usize,
-    ) -> (String, FlowStats) {
+        alpha: f64,
+        num_candidates: usize,
+        comm_matching_override: bool,
+    ) -> (String, FlowStats, u64) {
         let mut iter_initial_egraph = initial_egraph;
         let mut sat_time: Duration = Duration::from_secs(0);
         let mut extract_time: Duration = Duration::from_secs(0);
         let mut network: String = String::new();
+        let mut he_cost = 0;
         for i in 0..iters {
+            let iter_init_outnode_ids: IndexMap<String, Id> = self
+                .out_net_to_eclass
+                .iter()
+                .map(|(net, v)| (net.clone(), *v))
+                .collect();
             //iter_initial_egraph.dot().to_svg(format!("iter{}.svg", i)).unwrap();
             let start_time = Instant::now();
             // saturate
-            let sat_egraph = self.saturate(iter_initial_egraph.clone(), Some(&iter_initial_egraph));
+            let sat_egraph = self.saturate(iter_initial_egraph.clone(), Some(&iter_initial_egraph), comm_matching_override);
             let sat_time_iter = Instant::now() - start_time;
             sat_time += sat_time_iter;
 
@@ -377,45 +449,56 @@ impl EqsatOptimizer {
             //let concat_node = sat_egraph.add(Prop::Concat(outnode_ids));
             //let extractor = Extractor::new(&sat_egraph, MultDepth);
             //let (md, _) = extractor.find_best(sat_egraph.find(concat_node));
-            find_cycles(&sat_egraph, |id, _| {println!("AAAA");dbg!(id);});
+            //dbg!(md);
+            let mut cycle_nodes: HashSet<egraph_serialize::ClassId> = HashSet::new();
+            find_cycles(&sat_egraph, |id, _| {
+                cycle_nodes.insert(egraph_serialize::ClassId::new(id.into()));
+            });
 
-	        dbg!("sat complete");
-            
+            //dbg!("sat complete");
+
             //sat_egraph.dot().to_dot("egraph.dot");
             // convert to serialized graph
-            let mut egg_file = std::fs::File::create("out.egg").unwrap();
+            //let mut egg_file = std::fs::File::create("out.egg").unwrap();
             //let mut egg_file: std::fs::File = tempfile::tempfile().unwrap();
-            serde::serialize_to_binfile(
-                &sat_egraph,
-                self.out_net_to_eclass.values().into_iter(),
-                &mut egg_file,
-                |p| match p {
-                    Prop::And(_) => 1.0,
-                    _ => 0.0,
-                },
-            )
-            .unwrap();
+            let egraph_ser = serde::serialize_in_mem(&sat_egraph, self.out_net_to_eclass.values().into_iter());
+            //serde::serialize_to_binfile(
+            //    &sat_egraph,
+            //    self.out_net_to_eclass.values().into_iter(),
+            //    &mut egg_file,
+            //    |p| match p {
+            //        Prop::And(_) => 1.0,
+            //        _ => 0.0,
+            //    },
+            //)
+            //.unwrap();
             //dbg!(sat_egraph.total_number_of_nodes());
             //dbg!(sat_egraph.number_of_classes());
             // 2 egraphs in memory at same time is bad
             std::mem::drop(sat_egraph);
-		    dbg!("drop complete");
+            //dbg!("drop complete");
             //egg_file.seek(std::io::SeekFrom::Start(0)).unwrap();
-            //panic!();
-            let egg_file = std::fs::File::open("out.egg").unwrap();
-            let egraph_ser = egraph_serialize::EGraph::from_binary_file(&egg_file).unwrap();
+            //let egg_file = std::fs::File::open("out.egg").unwrap();
+            //let egraph_ser = egraph_serialize::EGraph::from_binary_file(&egg_file).unwrap();
 
             // last iteration dont care about updating initial
             if i < iters - 1 {
                 dbg!("start extract");
-                let (slack, ckt_md, ckt_remaining) = md_slack::calc_remaining(&egraph_ser, &egraph_ser.root_eclasses);
+                let (slack, ckt_md, ckt_remaining) =
+                    md_slack::calc_remaining(&egraph_ser, &egraph_ser.root_eclasses);
                 //for (_, old) in self.out_net_to_eclass.iter() {
                 //    dbg!(old);
                 //    dbg!(ckt_remaining.get(&egraph_serialize::ClassId::new((*old).into())));
                 //    dbg!(slack.md_lookup.get(&egraph_serialize::ClassId::new((*old).into())));
                 //}
                 dbg!("calc remaining");
-                let (ser_to_unser, pruned_egraph) = md_slack::egraph_prune(&egraph_ser, &egraph_ser.root_eclasses, &slack, ckt_md, &ckt_remaining);
+                let (ser_to_unser, pruned_egraph) = md_slack::egraph_prune(
+                    &egraph_ser,
+                    &egraph_ser.root_eclasses,
+                    &slack,
+                    ckt_md,
+                    &ckt_remaining,
+                );
                 iter_initial_egraph = pruned_egraph;
                 //let prune_set = md_slack::egraph_prune_set(&egraph_ser, &egraph_ser.root_eclasses, &slack, ckt_md, &ckt_remaining);
                 //let annot: HashMap<NodeId, String> = egraph_ser.nodes.iter().map(|(nid, _)| {
@@ -434,26 +517,21 @@ impl EqsatOptimizer {
                 }
                 dbg!("finish extract");
             } else {
-                dbg!("start final extract");
-                let mc_optimal = global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses);
-                let mut mixedcost = extraction_ser::MixedCost {
-                    enode_opt_lookup: mc_optimal,
-                    results: IndexMap::new(),
-                    visited: HashSet::new(),
-                };
-                for outnode_id in self.out_net_to_eclass.values() {
-                    mixedcost.select_best_eclass_mixed(
-                        &egraph_ser,
-                        egraph_serialize::ClassId::new(Into::<u32>::into(*outnode_id)),
-                        0,
-                    );
-                }
-                network = extraction_ser::dag_network_writer(
-                    &egraph_ser,
-                    &mut mixedcost.results,
-                    &self.out_net_to_eclass,
+                //dbg!("start final extract");
+                let old_egraph = serde::serialize_in_mem(
+                    &iter_initial_egraph,
+                    iter_init_outnode_ids.values().into_iter(),
                 );
-                dbg!("finish final extract");
+                (he_cost, network) = pool_extract(
+                    &egraph_ser,
+                    &old_egraph,
+                    &iter_init_outnode_ids,
+                    &self.out_net_to_eclass,
+                    &cycle_nodes,
+                    num_candidates,
+                    alpha,
+                );
+                //dbg!("finish final extract");
             }
             extract_time += Instant::now() - start_time - sat_time_iter;
         }
@@ -465,7 +543,17 @@ impl EqsatOptimizer {
                 sat_time,
                 extract_time,
             },
+            he_cost
         )
+    }
+
+    fn empty_flow(mut self, initial_egraph: EGraph<Prop, ()>,) -> String {
+        let egraph_ser = serde::serialize_in_mem(&initial_egraph, self.out_net_to_eclass.values().into_iter());
+        let mut cost_analysis =
+        global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses, HashMap::new());
+        let (mut best_cost, mut best_network) =
+        extraction_ser::dag_network_writer(&egraph_ser, &mut cost_analysis, &self.out_net_to_eclass);
+        best_network
     }
 }
 
@@ -488,8 +576,13 @@ enum FlowMode {
     MdMultipleIters {
         #[arg(long)]
         iters: Option<usize>,
+        #[arg(long)]
+        alpha: Option<f64>,
+        #[arg(long)]
+        num_candidates: Option<usize>,
     },
     MdVanillaFlow,
+    EmptyFlow,
 }
 
 //impl FromStr for FlowMode {
@@ -528,12 +621,12 @@ struct Args {
     /// Max e-node count
     #[arg(long)]
     egg_node_limit: Option<usize>,
-    
+
     #[arg(long, action=clap::ArgAction::SetTrue)]
     no_comm_matching: bool,
 
     #[arg(long, action=clap::ArgAction::SetTrue)]
-    strict_deadlines: bool
+    strict_deadlines: bool,
 }
 
 fn main() {
@@ -576,34 +669,31 @@ fn main() {
     let mut start_lines = in_network.lines();
     let innodes = start_lines.next().unwrap();
     let outnodes = start_lines.next().unwrap();
-    let (start_egraph, out_net_to_eclass, concat_node) = if infile
-        .extension()
-        .map(|ext| ext == "seqn")
-        .unwrap_or(false)
-    {
-        let start = start_lines.collect::<Vec<&str>>().join("\n");
-        egraph_from_seqn(
-            innodes,
-            outnodes,
-            start.as_str(),
-            args.flow == FlowMode::MdExplain || args.flow == FlowMode::MdVanillaFlow,
-        )
-    }
-    /* else if args.infile.ends_with(".sexpr") {
-        let mut start_lines = in_network.lines();
-        start_lines.next().unwrap();
-        start_lines.next().unwrap();
+    let (start_egraph, out_net_to_eclass, concat_node) =
+        if infile.extension().map(|ext| ext == "seqn").unwrap_or(false) {
+            let start = start_lines.collect::<Vec<&str>>().join("\n");
+            egraph_from_seqn(
+                innodes,
+                outnodes,
+                start.as_str(),
+                args.flow == FlowMode::MdExplain || args.flow == FlowMode::MdVanillaFlow,
+            )
+        }
+        /* else if args.infile.ends_with(".sexpr") {
+            let mut start_lines = in_network.lines();
+            start_lines.next().unwrap();
+            start_lines.next().unwrap();
 
-        let sexpr = start.parse().unwrap();
-        let mut start_egraph = EGraph::default();
-        let concat_node = Some(start_egraph.add_expr(&sexpr));
-    }*/
-    else {
-        panic!("unrecognied file extension for input")
-    };
+            let sexpr = start.parse().unwrap();
+            let mut start_egraph = EGraph::default();
+            let concat_node = Some(start_egraph.add_expr(&sexpr));
+        }*/
+        else {
+            panic!("unrecognied file extension for input")
+        };
 
     //let opter = EqsatOptimizer::new(rules, out_net_to_eclass).with_timeout(timeout_seconds);
-    let opter = EqsatOptimizer::new(
+    let mut opter = EqsatOptimizer::new(
         rules,
         out_net_to_eclass,
         OptimizerParams {
@@ -611,34 +701,63 @@ fn main() {
             node_limit,
             iter_limit,
             comm_matching: !args.no_comm_matching,
-            strict_deadlines: args.strict_deadlines
+            strict_deadlines: args.strict_deadlines,
         },
     );
 
     let (network, stats) = match args.flow {
-        FlowMode::McIlp => opter.mc_ilp_flow(start_egraph),
+        FlowMode::McIlp => unimplemented!(),
         FlowMode::MdExplain => opter.md_explain_flow(start_egraph, concat_node.unwrap()),
         FlowMode::MdDag => unimplemented!(), //opter.md_dag_flow(start_egraph),
-        FlowMode::MdMultipleIters { iters } => {
+        FlowMode::MdMultipleIters {
+            iters,
+            alpha,
+            num_candidates,
+        } => {
             let iters = iters.unwrap_or_else(|| {
                 env_vars
                     .get("EQSATOPT_CHECKPOINT_ITER")
                     .and_then(|x| x.parse::<usize>().ok())
                     .unwrap_or(10)
             });
-            opter.md_multiple_iters(start_egraph, iters)
+            let alpha = alpha.unwrap_or_else(|| {
+                env_vars
+                    .get("EQSATOPT_POOL_ALPHA")
+                    .and_then(|x| x.parse::<f64>().ok())
+                    .unwrap_or(1.0)
+            });
+            let num_candidates = num_candidates.unwrap_or_else(|| {
+                env_vars
+                    .get("EQSATOPT_POOL_CANDIDATES")
+                    .and_then(|x| x.parse::<usize>().ok())
+                    .unwrap_or(1)
+            });
+            let (network_c, stats_c, he_cost_c) = opter.md_multiple_iters(start_egraph.clone(), iters, alpha, num_candidates, true);
+            //let (network_nc, stats_nc, he_cost_nc) = opter.md_multiple_iters(start_egraph, iters, alpha, num_candidates, false);
+            (network_c, stats_c)
+            //if he_cost_c < he_cost_nc {
+            //    (network_c, stats_c)
+            //} else {
+            //    (network_nc, stats_nc)
+            //}
         }
         FlowMode::MdVanillaFlow => opter.md_vanilla_flow(start_egraph, concat_node.unwrap()),
+        FlowMode::EmptyFlow => (opter.empty_flow(start_egraph),FlowStats {
+            extract_time: Duration::from_micros(0),
+            final_eclasses: 0,
+            final_enodes: 0,
+            sat_time: Duration::from_micros(0)
+        }),
     };
 
-    println!(
-        "{},{},{},{},{}",
-        infile.display(),
-        stats.sat_time.as_secs(),
-        stats.extract_time.as_secs(),
-        stats.final_eclasses,
-        stats.final_enodes
-    );
+    //println!(
+    //    "{},{},{},{},{}",
+    //    infile.display(),
+    //    stats.sat_time.as_secs(),
+    //    stats.extract_time.as_secs(),
+    //    stats.final_eclasses,
+    //    stats.final_enodes
+    //);
     std::fs::write(
         args.outfile,
         format!(

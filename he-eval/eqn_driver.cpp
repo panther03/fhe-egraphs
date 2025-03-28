@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "eqn_driver.hpp"
+#include "circuit.hpp"
 
 using namespace eqn;
 
@@ -91,14 +92,24 @@ EqnDriver::add_output ( const std::string &var )
 }
 
 void
-EqnDriver::add_gate ( const Gate &gate )
+EqnDriver::add_eqn( std::pair<std::string, Gate*> &eqn )
 {
-	gatelist.push_back(gate);
-}
-
-void
-EqnDriver::add_eqn( const std::tuple<std::string, Gate*> &eqn )
-{
+   Gate* g = eqn.second;
+   if (g->op == Gate::UNSAFE_OR) {
+      assert(g->left->is_gate && g->right->is_gate);
+      Gate* a1 = (Gate*) g->left;
+      Gate* a2 = (Gate*) g->right;
+      if (a1->op == Gate::AND && a2->op == Gate::AND) {
+         g->left = a1->left;
+         g->left->polarity = false;
+         g->right = a1->right;
+         g->right->polarity = false;
+         g->op = Gate::XOR;
+      } else {
+         assert(a1->op == Gate::WIRE && a2->op == Gate::WIRE);
+         g->op = Gate::OR;
+      }
+   }
    eqnlist.insert(eqnlist.begin(), eqn);
 	//eqnlist.push_back(eqn);
 }
@@ -121,7 +132,7 @@ EqnDriver::print( std::ostream &stream )
 
    stream << "EQN2 LIST SIZE :" << eqnlist.size() << std::endl;
    
-   /*for(vector<tuple<string, MC::Bexp*>>::size_type i=0 ; i<eqnlist.size(); i++)
+   /*for(vector<pair<string, MC::Bexp*>>::size_type i=0 ; i<eqnlist.size(); i++)
    {
 	   MC::Bexp* b = get<1>(eqnlist.at(i));
 	   cout << "VAR: " << get<0>(eqnlist.at(i)) << "  HEAD: " << get<1>(eqnlist.at(i))->head << endl;

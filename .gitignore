@@ -5,3 +5,4 @@ helib.log
 **/helib.log
 egraph.json
 *.csv
+__pycache__/

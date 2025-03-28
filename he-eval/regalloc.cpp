@@ -2,7 +2,7 @@
 
 using namespace std;
 
-RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<string> &outputlist, vector<tuple<string, Gate*>> &eqnlist, bool quiet) {
+RegisterAllocator::RegisterAllocator (vector<string> &inputlist, vector<string> &outputlist, vector<pair<string, Gate*>> &eqnlist, bool quiet) {
     for (auto &input: inputlist) {
         regmap.insert(make_pair(input, id_counter++));
     }

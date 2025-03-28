@@ -62,7 +62,7 @@
 
 %type<GateInp*> gateinp
 %type<Gate*> gate
-%type<std::tuple<std::string, Gate*>> eqn
+%type<std::pair<std::string, Gate*>> eqn
 
 %right TK_AND
 %right TK_OR
@@ -90,7 +90,7 @@ eqnlist:
 ;
 
 eqn:
-   TK_VAR TK_EQUAL gate TK_SEMICOLON { $$ = std::make_tuple($1, $3); }
+   TK_VAR TK_EQUAL gate TK_SEMICOLON { $$ = std::make_pair($1, $3); }
 ;
 
 gateinp
@@ -117,7 +117,7 @@ gateinp
 
 gate
 	// expanded XOR rule
-	: TK_LPAREN TK_NOT TK_VAR TK_AND TK_VAR TK_RPAREN TK_OR TK_LPAREN TK_VAR TK_AND TK_NOT TK_VAR TK_RPAREN 
+	/*: TK_LPAREN TK_NOT TK_VAR TK_AND TK_VAR TK_RPAREN TK_OR TK_LPAREN TK_VAR TK_AND TK_NOT TK_VAR TK_RPAREN 
 		{
 		Gate *g = new Gate();
 
@@ -150,25 +150,25 @@ gate
 		g->right = r;
 
 		$$ = g;
-		}
-	| TK_LPAREN gate TK_RPAREN 
+		}*/
+	: TK_LPAREN gate TK_RPAREN 
 		{
 		$$ = $2;
 		}
-	| TK_VAR TK_AND TK_VAR
+	| gateinp TK_AND gateinp
 		{
 		Gate *g = new Gate();
 		g->op = Gate::Op::AND;
 
-		GateInp *l = new GateInp();
-		l->type = GateInp::InpType::Var;
-		l->name = $1;
-		GateInp *r = new GateInp();
-		r->type = GateInp::InpType::Var;
-		r->name = $3;
+		//GateInp *l = new GateInp();
+		//l->type = GateInp::InpType::Var;
+		//l->name = $1;
+		//GateInp *r = new GateInp();
+		//r->type = GateInp::InpType::Var;
+		//r->name = $3;
 		
-		g->left = l;
-		g->right = r;
+		g->left = $1;
+		g->right = $3;
 		
 		$$ = g;
 		}	
@@ -182,13 +182,14 @@ gate
 		
 		$$ = g;
 		}	
-	| gateinp TK_OR gateinp
+	| gate TK_OR gate
 		{
 		Gate *g = new Gate();
-		g->op = Gate::Op::OR;
+		g->op = Gate::Op::UNSAFE_OR;
 		
-		g->left = $1;
-		g->right = $3;
+		// weird pointer trickery
+		g->left = (GateInp*)$1;
+		g->right = (GateInp*)$3;
 		
 		$$ = g;
 		}

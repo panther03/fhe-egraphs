@@ -1,7 +1,6 @@
 use std::{collections::{HashMap, HashSet}, ops::{Add, AddAssign}};
 use egraph_serialize::*;
 
-use crate::global_greedy_dag::INFINITY;
 
 pub fn should_visit_complete_class(visited: &HashSet<ClassId>, egraph: &EGraph, class: &Class) -> bool {
     if visited.contains(&class.id) {

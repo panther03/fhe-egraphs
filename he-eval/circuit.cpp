@@ -7,12 +7,14 @@ using std::endl;
 
 GateInp::GateInp() 
 {
+    is_gate = false;
     polarity = true;
     name = "";
 }
 
 Gate::Gate()
 {
+    is_gate = true;
 	left = NULL;
 	right = NULL;
 }

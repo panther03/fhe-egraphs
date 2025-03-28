@@ -35,8 +35,7 @@ namespace eqn
 
 			void add_input( const string &var );
 			void add_output( const string &var );
-			void add_gate( const Gate &gate );
-			void add_eqn( const tuple<string, Gate*> &eqn );
+			void add_eqn( pair<string, Gate*> &eqn );
 			
 			void add_eqn( const string &var );
 			void add_consta();
@@ -45,7 +44,7 @@ namespace eqn
 
 			vector<string> inputlist;
 			vector<string> outputlist;
-			vector<tuple<string, Gate*>> eqnlist;
+			vector<pair<string, Gate*>> eqnlist;
 			vector<Gate> gatelist;
 		private:
 

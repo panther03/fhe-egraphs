@@ -565,6 +565,7 @@ pub fn calc_remaining(
         .map(|r| all_md.md_lookup.get(r).unwrap_or(&SlackCost::Unvisited).unwrap_visited() )
         .max()
         .unwrap();
+    dbg!(ckt_md);
 
     let mut ckt_remaining = HashMap::new();
     let pb = ProgressBar::new(egraph.classes().len() as u64);

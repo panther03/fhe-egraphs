@@ -104,8 +104,7 @@ pub fn deserialize_into_existing(
     //    .collect()
 }
 
-#[allow(unused)]
-pub fn serialize_in_mem<L, A>(egraph: EGraph<L, A>, root_eclasses: &Vec<Id>) -> egraph_serialize::EGraph
+pub fn serialize_in_mem<'a, L, A>(egraph: &EGraph<L, A>, root_eclasses: impl IntoIterator<Item=&'a Id>) -> egraph_serialize::EGraph
 where
     L: Language + Display,
     A: Analysis<L>,
@@ -115,22 +114,22 @@ where
     for class in egraph.classes() {
         for (i, node) in class.nodes.iter().enumerate() {
             out.add_node(
-                format!("{}.{}", class.id, i),
+                NodeId::new(i as u32, class.id.into()),
                 Node {
                     op: node.to_string(),
                     children: node
                         .children()
                         .iter()
-                        .map(|id| NodeId::from(format!("{}.0", id)))
+                        .map(|id| NodeId::new(0, (*id).into()))
                         .collect(),
-                    eclass: ClassId::from(format!("{}", class.id)),
-                    cost: Cost::new(1.0).unwrap(), //
+                    eclass: ClassId::new(class.id.into()),
+                    cost: Cost::new(if node.to_string() == "*" { 1.0 } else {0.0}).unwrap(), // TODO placeholder only works on empty egraph
                     subsumed: false
                 },
             )
         }
     }
-    out.root_eclasses = root_eclasses.iter().map(|x| x.to_string().into()).collect();
+    out.root_eclasses = root_eclasses.into_iter().map(|x| x.to_string().into()).collect();
     out
 }
 
@@ -166,7 +165,6 @@ where
             let mut metadata: u8 = node.children().len() as u8;
             if metadata >= 32 {
                 continue;
-                panic!();
             }
             if cost_function(node) > 0.0 {
                 metadata |= 1 << 6;

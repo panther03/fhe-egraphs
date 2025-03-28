@@ -151,6 +151,7 @@ impl TermDag {
         // Since the term with `id` is shared, the reachable set of `id` will already
         // be in `shared`.
         if shared.contains(&eclass) {
+            // should be (depth of eclass, 0.0) 
             ordered_float::NotNan::<f64>::new(0.0).unwrap()
         } else {
             let mut cost = self.node_cost(id);

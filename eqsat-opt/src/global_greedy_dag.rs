@@ -1,15 +1,65 @@
+use std::cmp::Ordering;
 use std::{iter, usize::MAX};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 use ordered_float::NotNan;
 use rpds::HashTrieSet;
 
+use egraph_serialize::{ClassId,NodeId,Node,EGraph};
+use crate::extraction_ser::{ExtractionResult};
 
-use egraph_serialize::{ClassId,NodeId,Node,Cost,EGraph};
-use crate::extraction_ser::ExtractionResult;
+#[derive(Debug, Clone, Copy)]
+struct Cost {
+    pub depth: egraph_serialize::Cost,
+    pub area: egraph_serialize::Cost,
+}
+pub const C_INFINITY: egraph_serialize::Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
+pub const C_ZERO: egraph_serialize::Cost = unsafe { NotNan::new_unchecked(0.0) };
 
-pub const INFINITY: Cost = unsafe { NotNan::new_unchecked(std::f64::INFINITY) };
+impl Cost {
+    pub const INFINITY: Self = Self { depth: C_INFINITY, area: C_INFINITY };
+    pub const ZERO: Self = Self { depth: C_ZERO, area: C_ZERO };
+
+    fn add_node_cost(self, c: egraph_serialize::Cost) -> Self {
+        Self {
+            depth: self.depth + c,
+            area: self.area + c
+        }
+    }
+}
+
+impl std::ops::Add for Cost {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self { 
+            depth: self.depth.max(rhs.depth),
+            area: self.area + rhs.area
+        }
+    }
+}
+
+impl std::ops::AddAssign for Cost {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = self.clone() + rhs;
+    }
+}
+
+
+impl PartialEq for Cost {
+    fn eq(&self, other: &Cost) -> bool {
+        self.depth == other.depth && self.area == other.area
+    }
+}
+impl PartialOrd for Cost {
+    fn partial_cmp(&self, other: &Cost) -> Option<Ordering> {
+        if self.depth == other.depth {
+            self.area.partial_cmp(&other.area)
+        } else {
+            self.depth.partial_cmp(&other.depth)
+        }
+    }
+}
 
 type TermId = usize;
 
@@ -25,7 +75,7 @@ type Reachable = HashTrieSet<ClassId>;
 struct TermInfo {
     node: NodeId,
     eclass: ClassId,
-    node_cost: Cost,
+    node_cost: egraph_serialize::Cost,
     total_cost: Cost,
     // store the set of reachable terms from this term
     reachable: Reachable,
@@ -66,15 +116,14 @@ impl TermDag {
             return Some(*id);
         }
 
-        let node_cost = node.cost;
-
         if children.is_empty() {
             let next_id = self.nodes.len();
+            let node_cost = Cost::ZERO.add_node_cost(node.cost);
             self.nodes.push(term.clone());
             self.info.push(TermInfo {
                 node: node_id,
                 eclass: node.eclass.clone(),
-                node_cost,
+                node_cost: node.cost,
                 total_cost: node_cost,
                 reachable: iter::once(node.eclass.clone()).collect(),
                 size: 1,
@@ -95,17 +144,18 @@ impl TermDag {
                 .max_by_key(|i| self.info[children[*i]].size)
                 .unwrap();
 
-            let mut cost = node_cost + self.total_cost(children[biggest_child]);
+            let mut cost = self.total_cost(children[biggest_child]);
             let mut reachable = self.info[children[biggest_child]].reachable.clone();
             let next_id = self.nodes.len();
 
             for child in children.iter() {
-                if cost > target {
+                if cost.add_node_cost(node.cost) > target {
                     return None;
                 }
                 let child_cost = self.get_cost(&mut reachable, *child);
                 cost += child_cost;
             }
+            cost = cost.add_node_cost(node.cost);
 
             if cost > target {
                 return None;
@@ -115,7 +165,7 @@ impl TermDag {
 
             self.info.push(TermInfo {
                 node: node_id,
-                node_cost,
+                node_cost: node.cost,
                 eclass: node.eclass.clone(),
                 total_cost: cost,
                 reachable,
@@ -138,19 +188,20 @@ impl TermDag {
         // Since the term with `id` is shared, the reachable set of `id` will already
         // be in `shared`.
         if shared.contains(&eclass) {
-            ordered_float::NotNan::<f64>::new(0.0).unwrap()
+            Cost {depth: self.info[id].total_cost.depth, area: C_ZERO}
         } else {
-            let mut cost = self.node_cost(id);
+            let mut cost = Cost::ZERO;
             for child in &self.nodes[id].children {
                 let child_cost = self.get_cost(shared, *child);
                 cost += child_cost;
             }
+            cost = cost.add_node_cost(self.node_cost(id));
             *shared = shared.insert(eclass);
             cost
         }
     }
 
-    pub fn node_cost(&self, id: TermId) -> Cost {
+    pub fn node_cost(&self, id: TermId) -> egraph_serialize::Cost {
         self.info[id].node_cost
     }
 
@@ -159,7 +210,7 @@ impl TermDag {
     }
 }
 
-pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> HashMap<NodeId, f64> {
+pub fn mc_extract(egraph: &EGraph, roots: &[ClassId], locked: HashMap<ClassId, NodeId>) -> ExtractionResult {
     let mut keep_going = true;
 
     let nodes = egraph.nodes.clone();
@@ -170,6 +221,10 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> HashMap<NodeId, f64> {
         keep_going = false;
 
         'node_loop: for (node_id, node) in &nodes {
+            match locked.get(&node.eclass) {
+                Some(locked_node) if node_id != locked_node => { continue; }
+                _ => {}
+            }
             let mut children: Vec<TermId> = vec![];
             // compute the cost set from the children
             for child in &node.children {
@@ -184,7 +239,7 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> HashMap<NodeId, f64> {
             let old_cost = best_in_class
                 .get(&node.eclass)
                 .map(|id| termdag.total_cost(*id))
-                .unwrap_or(INFINITY);
+                .unwrap_or(Cost::INFINITY);
 
             if let Some(candidate) = termdag.make(node_id.clone(), node, children, old_cost) {
                 let cadidate_cost = termdag.total_cost(candidate);
@@ -197,17 +252,18 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> HashMap<NodeId, f64> {
         }
     }
 
-    
-    let mut node_to_cost: HashMap<NodeId, f64> = HashMap::new();
-    for (node_id, node) in &nodes {
-        let cost = best_in_class.get(&node.eclass).unwrap_or(&MAX);
-        node_to_cost.insert(node_id.clone(), *cost as f64);
-    }
-    node_to_cost
-
-    //let mut result: ExtractionResult = IndexMap::new();
-    //for (class, term) in best_in_class {
-    //    result.insert(class.clone(), (0, termdag.info[term].node.clone()));
+    // ????
+    //let mut node_to_cost: HashMap<NodeId, f64> = HashMap::new();
+    //for (node_id, node) in &nodes {
+    //    let cost = best_in_class.get(&node.eclass).unwrap_or(&MAX);
+    //    node_to_cost.insert(node_id.clone(), *cost as f64);
     //}
-    //result
+    //node_to_cost
+
+    let mut result: ExtractionResult = IndexMap::new();
+    for (class, term) in best_in_class {
+        let info = &termdag.info[term];
+        result.insert(class, (info.total_cost.depth.round() as usize, info.node));
+    }
+    result
 }

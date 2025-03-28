@@ -48,7 +48,7 @@ class CircuitEvaluator {
             pk.Encrypt(falseCt, NTL::to_ZZX(0));
         }
 
-        void evaluate(vector<tuple<string, Gate*>> &eqnlist) {
+        void evaluate(vector<pair<string, Gate*>> &eqnlist) {
             for (auto &eqn : eqnlist) {
                 string net = get<0>(eqn);
                 int reg = ra.net2reg(net);
@@ -175,8 +175,10 @@ long gateinp_md(GateInp *gi, map<string, long> &md_map) {
     }
 }
 
-long find_md(vector<tuple<string, Gate*>> &eqnlist) {
+long find_md(vector<pair<string, Gate*>> &eqnlist, bool debug) {
     map<string, long> md_map;
+    int xc = 0;
+    int mc = 0;
     for (auto &eqn : eqnlist) {
         string net = get<0>(eqn);
         Gate* gate = get<1>(eqn);
@@ -186,27 +188,40 @@ long find_md(vector<tuple<string, Gate*>> &eqnlist) {
                 long md = max(gateinp_md(gate->left, md_map), gateinp_md(gate->right, md_map)) + 1;
 
                 md_map.insert(make_pair(net, md));
+                mc++;
+                break;
             }
             case Gate::Op::OR: {
                 long md = max(gateinp_md(gate->left, md_map), gateinp_md(gate->right, md_map)) + 1;
-
                 md_map.insert(make_pair(net, md));
+                break;
             }
             case Gate::Op::XOR: {
                 long md = max(gateinp_md(gate->left, md_map), gateinp_md(gate->right, md_map));
 
                 md_map.insert(make_pair(net, md));
+                xc++;
+                break;
             }
             case Gate::Op::WIRE: {
                 long md = gateinp_md(gate->left, md_map);
 
                 md_map.insert(make_pair(net, md));
+                break;
+            }
+            case Gate::Op::UNSAFE_OR: {
+                std::cerr << "unsanitized OR detected, failing\n";
+                exit(EXIT_FAILURE);
+                break;
             }
         }
     }
     int max_md = 0;
     for (const auto & [key, md] : md_map) {
         if (md > max_md) { max_md = md; }
+    }
+    if (debug) {
+        std::cout << "MC: " << mc << " | XC : " << xc << std::endl;
     }
     return max_md;
 }
@@ -262,9 +277,9 @@ int main( const int argc, const char **argv )
     driver.parse( args[0] );
     vector<string> inputlist = driver.inputlist;
     vector<string> outputlist = driver.outputlist;
-    vector<tuple<string, Gate*>> eqnlist = driver.eqnlist;
+    vector<pair<string, Gate*>> eqnlist = driver.eqnlist;
 
-    long depth = find_md(eqnlist);
+    long depth = find_md(eqnlist, debug);
     if (!quiet) cout << "Depth = " << depth << endl;
 
     //////////////////////////

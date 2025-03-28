@@ -17,11 +17,6 @@ OUTDIR = "out"
 OPTDIR = lambda OUTDIR: OUTDIR + "/opt"
 DEBUG = False
 
-def run_wrap(args):
-    if DEBUG:
-        print(args)
-    return subprocess.run(args)
-
 def parse_opts(args, opts_string):
     for opt in opts_string.split(" "):
         if "=" in opt:
@@ -35,12 +30,22 @@ class Driver:
     shared_rules = []
     units = []
     jobs = 1
+    capture_file = None
 
     eqsatopt_params = {"mode": ("md-vanilla-flow",{})}
 
     def __init__(self, units, shared_rules):
         self.units = units
         self.shared_rules = shared_rules
+        self.capture_file = None
+
+    def run_wrap(self, args):
+        if DEBUG:
+            print(args)
+        if (self.capture_file):
+            return subprocess.run(args, stdout=self.capture_file, stderr=self.capture_file)
+        else: 
+            return subprocess.run(args)
 
     def with_arith_rules(self):
         self.shared_rules.append(f"{DRIVER_DIR}/rules/arith.rules")
@@ -75,8 +80,9 @@ class Driver:
                     os.listdir(f"{DRIVER_DIR}/bench/{benchset}/"),
                 )
             )
+        driver = cls([], [])
         for bench in benches_l:
-            run_wrap([CKTCONV_PATH, "eqn2seqn", f"{DRIVER_DIR}/bench/{benchset}/{bench}.eqn", f"{outdir}/{bench}.seqn"])
+            driver.run_wrap([CKTCONV_PATH, "eqn2seqn", f"{DRIVER_DIR}/bench/{benchset}/{bench}.eqn", f"{outdir}/{bench}.seqn"])
         units = []
         for bench in benches_l:
             inseqn = f"{outdir}/{bench}.seqn"
@@ -86,64 +92,75 @@ class Driver:
                 inrules = []
             outeqn = f"{OPTDIR(outdir)}/{bench}.eqn"
             units.append((inseqn, inrules, outeqn))
-        driver = cls(units, [])
+        driver.units = units
         return driver
 
     # bunch of methods that return a Driver based on things like the benchset and ruleset, etc.
 
     def _run_all(self, task):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.jobs) as executor:
-            futures = []
+        if self.jobs == 1:
             for unit in self.units:
-                future = executor.submit(task, *unit)
-                futures.append(future)
-            concurrent.futures.wait(futures)
-            for future in futures:
-                if future.exception():
-                    print(future.exception())
+                task(*unit)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.jobs) as executor:
+                futures = []
+                for unit in self.units:
+                    future = executor.submit(task, *unit)
+                    futures.append(future)
+                concurrent.futures.wait(futures)
+                for future in futures:
+                    if future.exception():
+                        print(future.exception())
+    
+    # parallel executor thing
+    def opt_one(self, in_file, in_rules, out_file):
+        args = [EQSAT_OPT_PATH, in_file, out_file]
+        for rule in self.shared_rules:
+            args.append("--rules")
+            args.append(rule)
+        for rule in in_rules:
+            args.append("--rules")
+            args.append(rule)
+        for (param,param_val) in self.eqsatopt_params.items():
+            if param == "mode":
+                continue
+            args.append(f"{param}")
+            if param_val:
+                args.append(str(param_val))                
+        (mode, mode_params) = self.eqsatopt_params["mode"]
+        args.append(mode)
+        for (mode_param,mode_param_val) in mode_params.items():
+            args.append(f"{mode_param}")
+            if mode_param_val:
+                args.append(str(mode_param_val))
+        r = self.run_wrap(args)
 
-    def opt_all(self):
+    def opt_all(self, opt_one_override=None):
         if not self.eqsatopt_params.get("mode"):
             raise ValueError("Driver does not have a mode set!")
-        # parallel executor thing
-        def opt(in_file, in_rules, out_file):
-            args = [EQSAT_OPT_PATH, in_file, out_file]
-            for rule in self.shared_rules:
-                args.append("--rules")
-                args.append(rule)
-            for rule in in_rules:
-                args.append("--rules")
-                args.append(rule)
-            for (param,param_val) in self.eqsatopt_params.items():
-                if param == "mode":
-                    continue
-                args.append(f"{param}")
-                if param_val:
-                    args.append(str(param_val))                
-            (mode, mode_params) = self.eqsatopt_params["mode"]
-            args.append(mode)
-            for (mode_param,mode_param_val) in mode_params.items():
-                args.append(f"{mode_param}")
-                if mode_param_val:
-                    args.append(str(mode_param_val))
-            r = run_wrap(args)
-
-        self._run_all(opt)
+       
+        if opt_one_override:
+            self._run_all(lambda x,y,z: opt_one_override(self, x,y,z))
+        else:
+            self._run_all(self.opt_one)
 
     def verify_all(self):
         j = self.jobs
         self.jobs = 1
+        out_f = sys.stdout
+        if (self.capture_file):
+            out_f = self.capture_file
         def verify(in_file, _, out_file): 
-            print(f"{in_file},", end="", flush=True)
-            run_wrap([CKTCONV_PATH, "stats", out_file])
-            print(",", end="", flush=True)
-            run_wrap([RUN_ABC_PATH, in_file, out_file])
+            print(f"{in_file},", end="", flush=True, file=out_f)
+            self.run_wrap([CKTCONV_PATH, "stats", out_file])
+            print(",", end="", flush=True, file=out_f)
+            self.run_wrap([RUN_ABC_PATH, in_file, out_file])
         self._run_all(verify)
         self.jobs = j
 
     def eval_all(self):
         def eval(a,b, out_file):
-            run_wrap([HE_EVAL_PATH, "-q", out_file])
+            self.run_wrap([HE_EVAL_PATH, "-q", out_file])
         self._run_all(eval)
 
 
