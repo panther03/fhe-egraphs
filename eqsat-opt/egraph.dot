@@ -1,315 +1,315 @@
 digraph EGraph {
 subgraph cluster_ec0 {
 label="0";
-"0_0" [label="i0 (NP)"];
+"0_0" [color=blue,label="i0 (d0) (5)"];
 }
 subgraph cluster_ec19 {
 label="19";
-"19_0" [label="* (NP)"];
-"19_1" [label="^"];
+"19_0" [color=blue,label="* (d1) (4)"];
+"19_1" [label="^ (3)"];
 }
 subgraph cluster_ec73 {
 label="73";
-"73_0" [label="* (NP)"];
-"73_1" [label="*"];
-"73_2" [label="*"];
-"73_3" [label="^"];
+"73_0" [color=blue,label="* (d6) (1)"];
+"73_1" [label="* (1)"];
+"73_2" [label="* (1)"];
+"73_3" [label="^ (0)"];
 }
 subgraph cluster_ec38 {
 label="38";
-"38_0" [label="* (NP)"];
+"38_0" [color=blue,label="* (d1) (4)"];
 }
 subgraph cluster_ec92 {
 label="92";
-"92_0" [label="* (NP)"];
+"92_0" [color=blue,label="* (d3) (2)"];
 }
 subgraph cluster_ec57 {
 label="57";
-"57_0" [label="* (P)"];
+"57_0" [color=blue,label="* (d3) (4)"];
 }
 subgraph cluster_ec3 {
 label="3";
-"3_0" [label="i3 (NP)"];
+"3_0" [color=blue,label="i3 (d0) (4)"];
 }
 subgraph cluster_ec76 {
 label="76";
-"76_0" [label="* (NP)"];
+"76_0" [color=blue,label="* (d1) (4)"];
 }
 subgraph cluster_ec22 {
 label="22";
-"22_0" [label="! (NP)"];
+"22_0" [color=blue,label="! (d0) (2)"];
 }
 subgraph cluster_ec41 {
 label="41";
-"41_0" [label="! (NP)"];
+"41_0" [color=blue,label="! (d1) (3)"];
 }
 subgraph cluster_ec6 {
 label="6";
-"6_0" [label="i6 (NP)"];
+"6_0" [color=blue,label="i6 (d0) (4)"];
 }
 subgraph cluster_ec25 {
 label="25";
-"25_0" [label="! (NP)"];
+"25_0" [color=blue,label="! (d3) (2)"];
 }
 subgraph cluster_ec44 {
 label="44";
-"44_0" [label="* (NP)"];
-"44_1" [label="*"];
-"44_2" [label="*"];
-"44_3" [label="^"];
+"44_0" [color=blue,label="* (d4) (2)"];
+"44_1" [label="* (2)"];
+"44_2" [label="* (2)"];
+"44_3" [label="^ (1)"];
 }
 subgraph cluster_ec63 {
 label="63";
-"63_0" [label="* (NP)"];
+"63_0" [color=blue,label="* (d3) (3)"];
 }
 subgraph cluster_ec9 {
 label="9";
-"9_0" [label="false (P)"];
+"9_0" [color=blue,label="false (d0) (-1)"];
 }
 subgraph cluster_ec82 {
 label="82";
-"82_0" [label="* (P)"];
+"82_0" [color=blue,label="* (d5) (2)"];
 }
 subgraph cluster_ec28 {
 label="28";
-"28_0" [label="! (NP)"];
-"28_1" [label="^"];
+"28_0" [label="! (1)"];
+"28_1" [color=blue,label="^ (d3) (1)"];
 }
 subgraph cluster_ec47 {
 label="47";
-"47_0" [label="* (P)"];
+"47_0" [color=blue,label="* (d5) (2)"];
 }
 subgraph cluster_ec12 {
 label="12";
-"12_0" [label="* (NP)"];
-"12_1" [label="^"];
+"12_0" [color=blue,label="* (d1) (5)"];
+"12_1" [label="^ (4)"];
 }
 subgraph cluster_ec31 {
 label="31";
-"31_0" [label="* (NP)"];
-"31_1" [label="^"];
+"31_0" [color=blue,label="* (d2) (3)"];
+"31_1" [label="^ (2)"];
 }
 subgraph cluster_ec69 {
 label="69";
-"69_0" [label="* (P)"];
+"69_0" [color=blue,label="* (d3) (4)"];
 }
 subgraph cluster_ec15 {
 label="15";
-"15_0" [label="* (NP)"];
-"15_1" [label="^"];
+"15_0" [color=blue,label="* (d1) (5)"];
+"15_1" [label="^ (4)"];
 }
 subgraph cluster_ec88 {
 label="88";
-"88_0" [label="* (NP)"];
+"88_0" [color=blue,label="* (d1) (5)"];
 }
 subgraph cluster_ec34 {
 label="34";
-"34_0" [label="! (NP)"];
+"34_0" [color=blue,label="! (d1) (3)"];
 }
 subgraph cluster_ec53 {
 label="53";
-"53_0" [label="* (NP)"];
+"53_0" [color=blue,label="* (d2) (3)"];
 }
 subgraph cluster_ec72 {
 label="72";
-"72_0" [label="* (P)"];
+"72_0" [color=blue,label="* (d6) (1)"];
 }
 subgraph cluster_ec18 {
 label="18";
-"18_0" [label="! (NP)"];
+"18_0" [color=blue,label="! (d0) (3)"];
 }
 subgraph cluster_ec37 {
 label="37";
-"37_0" [label="* (NP)"];
-"37_1" [label="^"];
+"37_0" [color=blue,label="* (d2) (3)"];
+"37_1" [label="^ (2)"];
 }
 subgraph cluster_ec2 {
 label="2";
-"2_0" [label="i2 (NP)"];
+"2_0" [color=blue,label="i2 (d0) (5)"];
 }
 subgraph cluster_ec21 {
 label="21";
-"21_0" [label="! (NP)"];
+"21_0" [color=blue,label="! (d0) (2)"];
 }
 subgraph cluster_ec40 {
 label="40";
-"40_0" [label="* (NP)"];
+"40_0" [color=blue,label="* (d1) (4)"];
 }
 subgraph cluster_ec59 {
 label="59";
-"59_0" [label="* (NP)"];
+"59_0" [color=blue,label="* (d5) (2)"];
 }
 subgraph cluster_ec5 {
 label="5";
-"5_0" [label="i5 (NP)"];
+"5_0" [color=blue,label="i5 (d0) (4)"];
 }
 subgraph cluster_ec78 {
 label="78";
-"78_0" [label="* (NP)"];
+"78_0" [color=blue,label="* (d2) (3)"];
 }
 subgraph cluster_ec24 {
 label="24";
-"24_0" [label="^ (NP)"];
+"24_0" [color=blue,label="^ (d4) (1)"];
 }
 subgraph cluster_ec43 {
 label="43";
-"43_0" [label="* (NP)"];
-"43_1" [label="*"];
-"43_2" [label="*"];
+"43_0" [color=blue,label="* (d3) (3)"];
+"43_1" [label="* (3)"];
+"43_2" [label="* (3)"];
 }
 subgraph cluster_ec8 {
 label="8";
-"8_0" [label="true (P)"];
+"8_0" [color=blue,label="true (d0) (-1)"];
 }
 subgraph cluster_ec27 {
 label="27";
-"27_0" [label="* (NP)"];
-"27_1" [label="^"];
+"27_0" [color=blue,label="* (d4) (2)"];
+"27_1" [label="^ (1)"];
 }
 subgraph cluster_ec65 {
 label="65";
-"65_0" [label="* (NP)"];
+"65_0" [color=blue,label="* (d3) (3)"];
 }
 subgraph cluster_ec11 {
 label="11";
-"11_0" [label="! (NP)"];
+"11_0" [color=blue,label="! (d0) (5)"];
 }
 subgraph cluster_ec84 {
 label="84";
-"84_0" [label="* (NP)"];
+"84_0" [color=blue,label="* (d2) (3)"];
 }
 subgraph cluster_ec30 {
 label="30";
-"30_0" [label="! (NP)"];
-"30_1" [label="^"];
+"30_0" [color=blue,label="! (d1) (3)"];
+"30_1" [label="^ (3)"];
 }
 subgraph cluster_ec49 {
 label="49";
-"49_0" [label="* (P)"];
+"49_0" [color=blue,label="* (d4) (3)"];
 }
 subgraph cluster_ec14 {
 label="14";
-"14_0" [label="! (NP)"];
+"14_0" [color=blue,label="! (d0) (4)"];
 }
 subgraph cluster_ec33 {
 label="33";
-"33_0" [label="* (NP)"];
+"33_0" [color=blue,label="* (d1) (4)"];
 }
 subgraph cluster_ec71 {
 label="71";
-"71_0" [label="* (P)"];
+"71_0" [color=blue,label="* (d6) (1)"];
 }
 subgraph cluster_ec17 {
 label="17";
-"17_0" [label="! (NP)"];
+"17_0" [color=blue,label="! (d0) (3)"];
 }
 subgraph cluster_ec90 {
 label="90";
-"90_0" [label="* (NP)"];
+"90_0" [color=blue,label="* (d2) (3)"];
 }
 subgraph cluster_ec36 {
 label="36";
-"36_0" [label="! (NP)"];
+"36_0" [color=blue,label="! (d1) (3)"];
 }
 subgraph cluster_ec55 {
 label="55";
-"55_0" [label="* (P)"];
+"55_0" [color=blue,label="* (d2) (5)"];
 }
 subgraph cluster_ec1 {
 label="1";
-"1_0" [label="i1 (NP)"];
+"1_0" [color=blue,label="i1 (d0) (5)"];
 }
 subgraph cluster_ec74 {
 label="74";
-"74_0" [label="* (NP)"];
+"74_0" [color=blue,label="* (d1) (2)"];
 }
 subgraph cluster_ec20 {
 label="20";
-"20_0" [label="* (NP)"];
-"20_1" [label="*"];
-"20_2" [label="*"];
+"20_0" [color=blue,label="* (d4) (2)"];
+"20_1" [label="* (2)"];
+"20_2" [label="* (2)"];
 }
 subgraph cluster_ec39 {
 label="39";
-"39_0" [label="! (NP)"];
+"39_0" [color=blue,label="! (d1) (3)"];
 }
 subgraph cluster_ec4 {
 label="4";
-"4_0" [label="i4 (NP)"];
+"4_0" [color=blue,label="i4 (d0) (4)"];
 }
 subgraph cluster_ec23 {
 label="23";
-"23_0" [label="* (NP)"];
-"23_1" [label="^"];
+"23_0" [color=blue,label="* (d1) (2)"];
+"23_1" [label="^ (1)"];
 }
 subgraph cluster_ec42 {
 label="42";
-"42_0" [label="* (NP)"];
-"42_1" [label="^"];
+"42_0" [color=blue,label="* (d2) (3)"];
+"42_1" [label="^ (2)"];
 }
 subgraph cluster_ec61 {
 label="61";
-"61_0" [label="* (P)"];
+"61_0" [color=blue,label="* (d4) (3)"];
 }
 subgraph cluster_ec7 {
 label="7";
-"7_0" [label="i7 (NP)"];
+"7_0" [color=blue,label="i7 (d0) (4)"];
 }
 subgraph cluster_ec80 {
 label="80";
-"80_0" [label="* (NP)"];
+"80_0" [color=blue,label="* (d1) (5)"];
 }
 subgraph cluster_ec26 {
 label="26";
-"26_0" [label="! (NP)"];
-"26_1" [label="^"];
+"26_0" [color=blue,label="! (d1) (2)"];
+"26_1" [label="^ (2)"];
 }
 subgraph cluster_ec45 {
 label="45";
-"45_0" [label="* (P)"];
-"45_1" [label="*"];
-"45_2" [label="*"];
-"45_3" [label="^"];
+"45_0" [color=blue,label="* (d5) (2)"];
+"45_1" [label="* (2)"];
+"45_2" [label="* (2)"];
+"45_3" [label="^ (1)"];
 }
 subgraph cluster_ec10 {
 label="10";
-"10_0" [label="! (NP)"];
+"10_0" [color=blue,label="! (d0) (4)"];
 }
 subgraph cluster_ec29 {
 label="29";
-"29_0" [label="! (NP)"];
-"29_1" [label="^"];
+"29_0" [color=blue,label="! (d1) (3)"];
+"29_1" [label="^ (3)"];
 }
 subgraph cluster_ec67 {
 label="67";
-"67_0" [label="* (P)"];
+"67_0" [color=blue,label="* (d2) (5)"];
 }
 subgraph cluster_ec13 {
 label="13";
-"13_0" [label="! (NP)"];
+"13_0" [color=blue,label="! (d0) (5)"];
 }
 subgraph cluster_ec86 {
 label="86";
-"86_0" [label="* (NP)"];
+"86_0" [color=blue,label="* (d4) (2)"];
 }
 subgraph cluster_ec32 {
 label="32";
-"32_0" [label="! (NP)"];
-"32_1" [label="^"];
+"32_0" [label="! (2)"];
+"32_1" [color=blue,label="^ (d2) (2)"];
 }
 subgraph cluster_ec51 {
 label="51";
-"51_0" [label="* (NP)"];
+"51_0" [color=blue,label="* (d3) (3)"];
 }
 subgraph cluster_ec16 {
 label="16";
-"16_0" [label="* (NP)"];
-"16_1" [label="*"];
-"16_2" [label="*"];
+"16_0" [color=blue,label="* (d2) (4)"];
+"16_1" [label="* (4)"];
+"16_2" [label="* (4)"];
 }
 subgraph cluster_ec35 {
 label="35";
-"35_0" [label="* (NP)"];
+"35_0" [color=blue,label="* (d1) (4)"];
 }
 "19_0" -> "17_0" [lhead=cluster_ec17];
 "19_0" -> "18_0" [lhead=cluster_ec18];

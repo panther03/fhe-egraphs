@@ -261,7 +261,7 @@ pub fn ser_egraph_from_file(infile: &str) -> (EGraph,Vec<ClassId>) {
     (egraph, out_classes)
 }
 
-pub fn ser_egraph_to_dot<T: std::fmt::Display>(egraph: &EGraph, annot: &HashMap<NodeId, T>, outfile: &str) {
+pub fn ser_egraph_to_dot<T: std::fmt::Display>(egraph: &EGraph, annot: &HashMap<NodeId, T>, highlight: &HashMap<NodeId,usize>, outfile: &str) {
     // rankdir=TB;\ncompound=true;\nnewrank=true;\n
     let mut dot = String::from("digraph EGraph {\n");
     let mut connections = String::new();
@@ -281,7 +281,14 @@ pub fn ser_egraph_to_dot<T: std::fmt::Display>(egraph: &EGraph, annot: &HashMap<
             //} else {
             //    0
             //};
-            dot.push_str(format!("\"{}_{}\" [label=\"{}", node.class(), node.node(), node_data.op).as_str());
+            dot.push_str(format!("\"{}_{}\" [", node.class(), node.node()).as_str());
+            if highlight.contains_key(node) {
+                dot.push_str("color=blue,");
+            }
+            dot.push_str(format!("label=\"{}",  node_data.op).as_str());
+            if let Some(depth) = highlight.get(node) {
+                dot.push_str(format!(" (d{})", depth).as_str());
+            }
 
             if let Some(node_annot) = annot.get(node) {
                 dot.push_str(format!(" ({})", node_annot).as_str());

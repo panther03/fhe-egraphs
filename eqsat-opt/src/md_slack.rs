@@ -1,11 +1,12 @@
 use std::{
-    collections::{HashMap, HashSet}, hash::Hash, io::Empty, usize::MAX
+    collections::{HashMap, HashSet}, hash::Hash, io::Empty, sync::{Arc, Mutex}, usize::MAX
 };
 
 use egraph_serialize::{ClassId, EGraph, NodeId};
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::{extraction_ser::ser_egraph_to_dot, traverse::{self, should_visit_complete_class}};
+use rayon::prelude::*;
 
 trait TraverseData<T: Clone = Self>: Clone {
     fn root_data() -> Self;
@@ -225,7 +226,7 @@ impl SlackCost {
 }
 
 impl traverse::EGraphVisitor for SlackNaive {
-    fn should_visit(&mut self, egraph: &EGraph, class: &egraph_serialize::Class) -> bool {
+    fn visit(&mut self, egraph: &EGraph, class: &egraph_serialize::Class) -> bool {
         if Some(class.id) == self.base_class {
             if !self.md_lookup.contains_key(&class.id) {
                 self.md_lookup.insert(class.id,SlackCost::Visited(0));
@@ -265,8 +266,6 @@ impl traverse::EGraphVisitor for SlackNaive {
             return false;
         }
     }
-
-    fn visit(&mut self, _: &EGraph, _: &egraph_serialize::Class) {}
 }
 
 /*
@@ -551,10 +550,10 @@ impl EGraphTraversalResponder<ParentEnode> for MdBounds {
     fn handle_root(&mut self, _: ClassId) {}
 }
 
-pub fn calc_remaining(
+pub fn calc_bounds(
     egraph: &EGraph,
     _roots: &[ClassId],
-) -> (SlackNaive, usize, HashMap<ClassId, usize>) {
+) -> (SlackNaive, usize, HashMap<ClassId, i32>) {
     // should not be in the e-graph!
     let mut all_md = SlackNaive::new_all_ckt();
     traverse::egraph_pass_traverse(&egraph, &mut all_md);
@@ -567,9 +566,9 @@ pub fn calc_remaining(
         .unwrap();
     dbg!(ckt_md);
 
-    let mut ckt_remaining = HashMap::new();
+    let mut bounds = HashMap::new();
     let pb = ProgressBar::new(egraph.classes().len() as u64);
-    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos:>7}/{len:7} {msg}")
+    /*pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos:>7}/{len:7} {msg}")
     .unwrap()
     .progress_chars("#>-"));
 
@@ -594,148 +593,297 @@ pub fn calc_remaining(
             ckt_remaining.insert(*cid, worst_remaining);
         }
         drop(slack);
+    }*/
+    // Create the progress bar
+    let pb = ProgressBar::new(egraph.classes().len() as u64);
+    //pb.set_style(ProgressStyle::default_bar()
+    //    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
+    //    .unwrap()
+    //    .progress_chars("#>-"));
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos:>7}/{len:7} {msg}")
+    .unwrap()
+    .progress_chars("#>-"));
+
+
+    // Wrap the progress bar in an Arc<Mutex> for thread-safe sharing
+    let pb = Arc::new(Mutex::new(pb));
+
+    let classes: Vec<(&ClassId, &egraph_serialize::Class)> = egraph.classes().iter().collect();
+    let results: Vec<_> = classes
+        .par_iter()
+        .map(|(cid, _)| {
+            let mut slack = SlackNaive::new(**cid);
+            let iters: usize = traverse::egraph_pass_traverse(&egraph, &mut slack);
+            
+            // Update progress bar safely
+            {
+                let pb = pb.lock().unwrap();
+                pb.inc(1);
+                pb.set_message(format!("iters={}", iters));
+            }
+            
+            let mut worst_remaining: Option<usize> = None;
+            for root in _roots {
+                worst_remaining = slack.md_lookup.get(root).map_or(worst_remaining, |rmd| {
+                    match rmd {
+                        SlackCost::Visited(rmd2) => Some(worst_remaining.map_or(*rmd2, |wrm: usize| wrm.max(*rmd2))),
+                        _ => worst_remaining    
+                    }
+                });
+            }
+
+            if worst_remaining.is_none() {
+                println!("eclass w/ no path to root: {}", cid);
+            }
+            
+            let result = worst_remaining.map(|wr| (**cid, wr));
+            drop(slack);
+            result
+        })
+        .filter_map(|x| x)
+        .collect();
+
+    // Finish the progress bar
+    pb.lock().unwrap().finish();
+
+    // Insert results into the HashMap
+    for (cid, worst_remaining) in results {
+        bounds.insert(cid, (ckt_md as i32) - (worst_remaining as i32));
     }
     dbg!("b");
-    (all_md, ckt_md, ckt_remaining)
+    (all_md, ckt_md, bounds)
 }
 
-struct PruneTraverse<'a> {
+#[derive(Clone, Copy, PartialEq)]
+enum PruneMark {
+    //PrunedPendingProp,
+    //PruneMarked,
+    //PruneMarkedTwice,
+    Pruned
+}
+
+struct PruneFirstMarkTraverse<'a> {
+    pruned: HashMap<ClassId, PruneMark>,
+    slack: &'a SlackNaive,
+    bounds: &'a HashMap<ClassId, i32>,
+//    reachable_memo: HashMap<(ClassId, ClassId), bool>
+}
+
+
+impl<'a> traverse::EGraphVisitor for PruneFirstMarkTraverse<'a> {
+    /*fn iter_start(&mut self) {
+        self.pruned.iter_mut().for_each(|(_, mark)| {
+            *mark = match mark {
+            PruneMark::PruneMarkedTwice => PruneMark::PrunedPendingProp,
+            _ => *mark
+            };
+        })
+    }*/
+
+    fn visit(&mut self, egraph: &EGraph, class: &egraph_serialize::Class) -> bool {
+        let class = class.id;
+        match self.pruned.get(&class).cloned() {
+            None => {
+                if !self.bounds.contains_key(&class) {
+                    self.pruned.insert(class,PruneMark::Pruned);
+                    return true;
+                }
+
+                let mut did_something = false;
+                let bound = self.bounds.get(&class).unwrap();
+                let mut definitely_pruned = true;
+                for node in &egraph[&class].nodes {
+                    let mut md_child = 0;
+                        let mut are_children_pruned = false;
+                        for child in &egraph[node].children {
+                            let child = ClassId::new(child.class());
+                            md_child = md_child.max(self.slack.md_lookup.get(&child).unwrap().unwrap_visited());
+                            match self.pruned.get(&child).cloned() {
+                                //Some(PruneMark::PruneMarked) | Some(PruneMark::PruneMarkedTwice) if !self.reachable(egraph, child, class) => {
+                                //    did_something = true;
+                                //    self.pruned.remove(&child);
+                                //}
+                                Some(PruneMark::Pruned) => {
+                                    are_children_pruned = true;
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                        let cost = (&egraph[node]).cost.round() as usize;
+                        if !are_children_pruned && (cost + md_child) as i32 <= *bound {
+                            // as far as we know this node is not getting touched
+                            // so the class shouldn't either.
+                            definitely_pruned = false;
+                        }
+                }
+
+                if definitely_pruned {
+                    // if we made it here all the nodes were pruned. so this class is pruned too and it wasn't before.
+                    self.pruned.insert(class, PruneMark::Pruned);
+                    did_something = true;
+                }
+                did_something
+            }
+            //Some(PruneMark::PruneMarked) | Some(PruneMark::PruneMarkedTwice) => {
+            //    self.pruned.insert(class,PruneMark::PruneMarkedTwice);
+            //    return true;
+            //}
+            //Some(PruneMark::PrunedPendingProp) => {
+            //    // we automatically put a mark on all these nodes
+            //    // there is 1 full iteration for the mark to be cleared
+            //    for node in &egraph[&class].nodes {
+            //        for child in &egraph[node].children {
+            //            let child = ClassId::new(child.class());
+            //            println!("marking {} for kill", child);
+            //            if !self.pruned.contains_key(&child) {
+            //                self.pruned.insert(child, PruneMark::PruneMarked);
+            //            }
+            //        }
+            //    }
+            //    self.pruned.insert(class, PruneMark::Pruned);
+            //    true
+            //}
+            _ => false
+        }       
+    }
+}
+
+struct PruneReconstructTraverse<'a> {
     unser_egraph: egg::EGraph<crate::Prop, ()>,
     ser_to_unser: HashMap<egg::Id, egg::Id>,
     node_visited: HashSet<NodeId>,
-    slack: &'a SlackNaive,
-    ckt_md: usize,
-    ckt_remaining: &'a HashMap<ClassId, usize>,
+    pruned: &'a HashMap<ClassId, PruneMark>,
 }
 
-
-impl<'a> PruneTraverse<'a> {
-    fn prune_class_visit(&mut self, egraph: &EGraph, class: ClassId) -> bool {
+impl <'a> traverse::EGraphVisitor for PruneReconstructTraverse<'a> {
+    fn visit(&mut self, egraph: &EGraph, class: &egraph_serialize::Class) -> bool {
         let mut did_something = false;
-        if let Some(worst_remaining) = self.ckt_remaining.get(&class) {
-            let ser_id = egg::Id::from(class.class() as usize);
-            let mut cid = self.ser_to_unser.get(&ser_id).cloned();
-            for node in &egraph[&class].nodes {
-                if self.node_visited.contains(node) {
-                    continue;
-                }
-
-                // could be optimized: only one pass is needed for this
-                // but this doesnt take the majority of the time anyway i dont think
-                let cost = (&egraph[node]).cost.round() as usize;
-                let mut md_child = 0;
-                for child in &egraph[node].children {
-                    let child = ClassId::new(child.class());
-                    md_child = md_child.max(self.slack.md_lookup.get(&child).unwrap().unwrap_visited());
-                }
-
-                if cost + md_child + worst_remaining <= self.ckt_md {
-                    let enode = crate::serde::decode_enode(
-                        &self.ser_to_unser,
-                        &egraph[node],
-                    );
-                    if let Some(enode) = enode {
-                        self.node_visited.insert(*node);
-                        did_something = true;
-                        let id = self.unser_egraph.add(enode);
-                        if let Some(cid) = cid {
-                            self.unser_egraph.union(cid, id);
-                        } else {
-                            cid = Some(id);
-                            self.ser_to_unser.insert(ser_id, id);
-                        }
+        let cid = class.id;
+        let ser_id = egg::Id::from(cid.class() as usize);
+        let mut unser_id = self.ser_to_unser.get(&ser_id).cloned();
+        for node in &egraph[&cid].nodes {
+            if !self.node_visited.contains(node) && 
+            !self.pruned.contains_key(&ClassId::new(node.class())) {
+                let enode: Option<crate::common::Prop> = crate::serde::decode_enode(
+                    &self.ser_to_unser,
+                    &egraph[node],
+                );
+                if let Some(enode) = enode {
+                    self.node_visited.insert(*node);
+                    did_something = true;
+                    let id = self.unser_egraph.add(enode);
+                    /*let id32: u32 = id.into();
+                    if id32 == (292 as u32) ||
+                        id32 == (298 as u32) ||
+                        id32 == (264 as u32) ||
+                        id32 == (223 as u32) ||
+                        id32 == (280 as u32) ||
+                        id32 == (230 as u32) {
+                        dbg!(cid);
+                    }*/
+                    if let Some(unser_id) = unser_id {
+                        self.unser_egraph.union(unser_id, id);
+                    } else {
+                        unser_id = Some(id);
+                        self.ser_to_unser.insert(ser_id, id);
                     }
-                    // OK if it could not be added, this simply means that one of the child nodes
-                    // was itself pruned, so we don't get to depend on it.
                 }
+                // OK if it could not be added, this simply means that one of the child nodes
+                // was itself pruned, so we don't get to depend on it.
             }
         }
         did_something
     }
 }
 
-// one optimization we could consider is to filter the e-graph beforehand
-// to remove the pruned nodes. that lessens the amount of nodes we are iterating over each pass.
-impl<'a> traverse::EGraphVisitor for PruneTraverse<'a> {
-    fn should_visit(&mut self, egraph: &EGraph, class: &egraph_serialize::Class) -> bool {
-        //should_visit_complete_class(&self.visited, egraph, class)
-        // could consider also checking the condition for if it will be pruned
-        self.prune_class_visit(egraph, class.id)
-    }
-
-    fn visit(&mut self, _: &EGraph, _: &egraph_serialize::Class) {}
-}
-
-/*
-impl<'a> EGraphTraversalResponder<EmptyContext> for PruneTraverse<'a> {
-    fn handle_child(
-        &mut self,
-        egraph: &EGraph,
-        worklist: &mut EGraphWorkList<EmptyContext>,
-        _: EmptyContext,
-        class: ClassId,
-    ) {
-        if let Some(worst_remaining) = self.ckt_remaining.get(&class) {
-            worklist.push(TraversalWorkItem::Continuation(
-                EmptyContext(),
-                NodeId::new(0, class.class()),
-            ));
-            for node in &egraph[&class].nodes {
-                let cost = (&egraph[node]).cost.round() as usize;
-                let mut md_child = 0;
-                for child in &egraph[node].children {
-                    let child = ClassId::new(child.class());
-                    md_child = md_child.max(self.slack.md_lookup.get(&child).unwrap().unwrap_visited());
-                }
-                if cost + md_child + worst_remaining <= self.ckt_md {
-                    for child in &egraph[node].children {
-                        let child = egraph.nid_to_cid(child);
-                        let unser_child = egg::Id::from(child.class() as usize);
-                        //if !self.visited.contains(&unser_child)
-                        if !self.ser_to_unser.contains_key(&unser_child)
-                        {
-                            //self.visited.insert(unser_child);
-                            worklist.push(TraversalWorkItem::Child(EmptyContext(), *child));
-                        }
-                    }
-                }
-            }
-        }
-        // otherwise it has no path to the roots anyway, and we dont care
-    }
-    fn handle_cont(
-        &mut self,
-        egraph: &EGraph,
-        worklist: &mut EGraphWorkList<EmptyContext>,
-        _: EmptyContext,
-        node: NodeId,
-    ) {
-        self.prune_class_visit(egraph, ClassId::new(node.class())); 
-    }
-    fn handle_root(&mut self, root: ClassId) {}
-}*/
-
 pub fn egraph_prune(
     egraph: &EGraph,
     _roots: &[ClassId],
     slack: &SlackNaive,
-    ckt_md: usize,
-    ckt_remaining: &HashMap<ClassId, usize>,
+    bounds: &HashMap<ClassId, i32>,
 ) -> (HashMap::<egg::Id,egg::Id>, egg::EGraph<crate::Prop, ()>) {
-    let unser_egraph: egg::EGraph<crate::Prop, ()> = egg::EGraph::default();
-    let mut pt = PruneTraverse {
-        ckt_md,
-        unser_egraph,
-        ser_to_unser: HashMap::new(),
-        node_visited: HashSet::new(),
+    let mut pmt = PruneFirstMarkTraverse {
+        pruned: HashMap::new(),
         slack,
-        ckt_remaining
+        bounds
     };
-    //egraph_traverse(egraph, _roots, &mut pt);
-    traverse::egraph_pass_traverse(egraph, &mut pt);
-    //dbg!(pt.ctr);
+    traverse::egraph_pass_traverse(egraph, &mut pmt);
+    //for (class, mark) in pmt.pruned.iter() {
+    //    match mark {
+    //        PruneMark::PruneMarked | PruneMark::PruneMarkedTwice => {
+    //            panic!("Class {} was left marked upon stop!", class);
+    //        }
+    //        PruneMark::PrunedPendingProp => {
+    //            panic!("Class {} was left pending propagation upon stop!", class);
+    //        }
+    //        _ => {}
+    //    }
+    //}
 
-    (pt.ser_to_unser, pt.unser_egraph)
+    /*
+    optimized doesn't work for some reason because there are classes in the egraph greater than the len()??
+    let mut unreachable: Vec<bool> = vec![true; egraph.classes().len()];
+    let mut roots_a: HashSet<ClassId> = _roots.iter().map(|c| *c).collect();
+    let mut roots_b: HashSet<ClassId> = HashSet::new();
+
+    while !roots_a.is_empty() {
+        roots_b.clear();
+        for root in &roots_a {
+            if !unreachable[root.class() as usize] || pmt.pruned.contains_key(root) {
+                continue;
+            }
+            unreachable[root.class() as usize] = false;
+            for node in &egraph[root].nodes {
+                for child in &egraph[node].children {
+                    let child = ClassId::new(child.class());
+                    roots_b.insert(child);
+                }
+            }
+        }
+        std::mem::swap(&mut roots_a, &mut roots_b);
+    }
+
+    for i in 0..unreachable.len() {
+        if unreachable[i] {
+            pmt.pruned.insert(ClassId::new(i as u32), PruneMark::Pruned);
+        }
+    }*/
+
+    let mut unreachable: HashSet<&ClassId> = egraph.classes().iter().map(|(cid,_)| cid).collect();
+    let mut roots_a: HashSet<ClassId> = _roots.iter().map(|c| *c).collect();
+    let mut roots_b: HashSet<ClassId> = HashSet::new();
+
+    while !roots_a.is_empty() {
+        roots_b.clear();
+        for root in &roots_a {
+            if !unreachable.contains(root) || pmt.pruned.contains_key(root) {
+                continue;
+            }
+            unreachable.remove(root);
+            for node in &egraph[root].nodes {
+                for child in &egraph[node].children {
+                    let child = ClassId::new(child.class());
+                    roots_b.insert(child);
+                }
+            }
+        }
+        std::mem::swap(&mut roots_a, &mut roots_b);
+    }
+
+    for unreachable_class in unreachable {
+        pmt.pruned.insert(*unreachable_class, PruneMark::Pruned);
+    }
+
+    let mut prt = PruneReconstructTraverse {
+        pruned: &pmt.pruned,
+        node_visited: HashSet::new(),
+        unser_egraph: egg::EGraph::default(),
+        ser_to_unser: HashMap::new()
+    };
+    traverse::egraph_pass_traverse(egraph, &mut prt);
+
+    (prt.ser_to_unser, prt.unser_egraph)
 }
 
 /*
@@ -775,7 +923,7 @@ mod tests {
         *,
     };
 
-    use super::{calc_remaining, egraph_prune, SlackCost};
+    use super::{calc_bounds, egraph_prune, SlackCost};
 
     #[test]
     fn spider() {
@@ -798,7 +946,7 @@ mod tests {
             .iter()
             .map(|(node, flatnode)| (*node, bounds.node_data[*flatnode].inv_md))
             .collect();
-        ser_egraph_to_dot(&egraph, &annot, "egraph.dot");
+        ser_egraph_to_dot(&egraph, &annot, &HashMap::new(), "egraph.dot");
         dbg!(bounds.worst_md);
     }
 
@@ -807,7 +955,7 @@ mod tests {
         let egg_file =
             std::fs::File::open("/home/julien/EPFL/LSI/work/fhe-egraphs/hd08.egg").unwrap();
         let egraph = egraph_serialize::EGraph::from_binary_file(&egg_file).unwrap();
-        ser_egraph_to_dot::<&str>(&egraph, &HashMap::new(), "egraph.dot");
+        ser_egraph_to_dot::<&str>(&egraph, &HashMap::new(), &HashMap::new(), "egraph.dot");
     }
 
     #[test]
@@ -854,14 +1002,15 @@ mod tests {
     #[test]
     fn hd08_prune() {
         let egg_file =
-            std::fs::File::open("/home/julien/EPFL/LSI/work/fhe-egraphs/hd08_cycles.egg").unwrap();
+            std::fs::File::open("/home/julien/EPFL/LSI/work/fhe-egraphs/out0.egg").unwrap();
         let egraph = egraph_serialize::EGraph::from_binary_file(&egg_file).unwrap();
-        //let out_eclasses = vec![ClassId::new(73)];
-        let out_eclasses = vec![ClassId::new(7963)];
+        let out_eclasses = vec![ClassId::new(73)];
+        //let out_eclasses = vec![ClassId::new(7963)];
+        //let out_eclasses = vec![ClassId::new(390)];
 
-        let (slack, ckt_md, ckt_remaining) = calc_remaining(&egraph, &out_eclasses);
-        let (ser_to_unser,pruned) = egraph_prune(&egraph, &out_eclasses, &slack, ckt_md, &ckt_remaining);
-        //pruned.dot().to_dot("egraph_pruned.dot").unwrap();
+        let (slack, ckt_md, bounds) = calc_bounds(&egraph, &out_eclasses);
+        let (ser_to_unser,pruned) = egraph_prune(&egraph, &out_eclasses, &slack, &bounds);
+        pruned.dot().to_dot("egraph_pruned.dot").unwrap();
         //let annot: HashMap<NodeId, &str> = egraph.classes().iter()
         //    .map(|(cid, class)| {
         //        (
@@ -870,12 +1019,20 @@ mod tests {
         //        )
         //    })
         //    .collect();
+
+        let annot: HashMap<NodeId, i32> = egraph.nodes.iter().map(|(nid, node)| {
+            (*nid, bounds.get(&ClassId::new(nid.class())).map(|b| {
+                (ckt_md as i32) - *b + (node.cost.round() as i32)
+            }).unwrap_or(-1))
+        }).collect();
         dbg!(pruned.total_number_of_nodes());
         dbg!(pruned.number_of_classes());
         dbg!(egraph.classes().len());
         dbg!(egraph.nodes.len());
+        let results = global_greedy_dag::mc_extract(&egraph, &out_eclasses, HashMap::new(), &bounds);
+        let highlight: HashMap<NodeId, usize> = results.iter().map(|(k,v)| (v.1, v.0)).collect();
 
-        //ser_egraph_to_dot::<&str>(&egraph, &annot, "egraph.dot");
+        ser_egraph_to_dot::<i32>(&egraph, &annot, &highlight, "egraph.dot");
 
         /*let pruned = egraph_prune(&egraph, &out_eclasses);
         println!("Pruned {}% of e-graph", (pruned.len() as f32 / egraph.nodes.len() as f32 * 100.));

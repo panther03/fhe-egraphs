@@ -58,7 +58,7 @@ impl TermDag {
         node: &Node,
         children: Vec<TermId>,
         target: Cost,
-        data: &MdMcExtractData
+        bounds: &HashMap<ClassId, i32>
     ) -> Option<TermId> {
         let term = Term {
             //op: node.op.clone(),
@@ -101,8 +101,13 @@ impl TermDag {
             let deepest_child = (0..children.len())
                 .max_by_key(|i| self.info[children[*i]].total_depth)
                 .unwrap();
+            let local_cost = (node.cost.round()) as usize;
 
-            if deepest_child + data.inv_md_lookup.get(&node_id).unwrap() > data.ckt_md {
+            
+            if (bounds.get(&node.eclass).is_none()) {
+                println!("um:: {}", node.eclass);
+            }
+            if (deepest_child + local_cost) as i32 > *bounds.get(&node.eclass).unwrap_or(&0) {
                 return None;
             }
 
@@ -173,17 +178,13 @@ impl TermDag {
     }
 }
 
-pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
+pub fn mc_extract<'a>(egraph: &EGraph, _roots: &[ClassId], bounds: &HashMap<ClassId, i32>) -> ExtractionResult {
     let mut keep_going = true;
 
     let nodes = egraph.nodes.clone();
     let mut termdag = TermDag::default();
     let mut best_in_class: HashMap<ClassId, TermId> = HashMap::default();
-
-    let mut data = MdMcExtractData::new();
-    data.md_extract(egraph, _roots);
-    dbg!(data.ckt_md);
-
+    
     while keep_going {
         keep_going = false;
 
@@ -204,7 +205,7 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
                 .map(|id| termdag.total_cost(*id))
                 .unwrap_or(INFINITY);
 
-            if let Some(candidate) = termdag.make(node_id.clone(), node, children, old_cost, &data) {
+            if let Some(candidate) = termdag.make(node_id.clone(), node, children, old_cost, bounds) {
                 let cadidate_cost = termdag.total_cost(candidate);
 
                 if cadidate_cost < old_cost {
@@ -215,24 +216,21 @@ pub fn mc_extract(egraph: &EGraph, _roots: &[ClassId]) -> ExtractionResult {
         }
     }
 
-    /*for (_, term) in best_in_class {
-        node_to_cost.insert(termdag.info[term].node.clone(), termdag.total_cost(term).into());
-    }*/
     let mut result: ExtractionResult = IndexMap::new();
-    for (node_id, node) in &nodes {
-        result.insert(node.eclass.clone(), (0, node_id.clone()));
-        //let cost = best_in_class.get(&node.eclass).unwrap_or(&MAX);
-        //node_to_cost.insert(node_id.clone(), *cost as f64);
+    for (class, term) in best_in_class {
+        let info = &termdag.info[term];
+        result.insert(class, (info.total_depth, info.node));
     }
+    dbg!(&result);
     result
 }
 
-pub struct MdMcExtractData {
-    inv_md_lookup: HashMap<NodeId, usize>,
-    md_lookup: HashMap<NodeId, usize>,
-    ckt_md: usize
+pub struct MdMcExtractData<'a> {
+    pub inv_md_lookup: &'a HashMap<ClassId, usize>,
+    pub ckt_md: usize
 }
 
+/*
 impl MdMcExtractData {
     pub fn new() -> Self {
         Self {
@@ -341,3 +339,4 @@ impl MdMcExtractData {
         self.ckt_md = ckt_md;
     }*/
 }
+*/

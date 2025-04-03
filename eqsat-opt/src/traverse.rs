@@ -36,9 +36,8 @@ pub fn should_visit_cost_depth<C: CostVal>(costs: &HashMap<ClassId, C>, egraph: 
 }
 
 pub trait EGraphVisitor {
-    fn should_visit(&mut self, egraph: &EGraph, class: &Class) -> bool;
-
-    fn visit(&mut self, egraph: &EGraph, class: &Class);
+    fn iter_start(&mut self) {}
+    fn visit(&mut self, egraph: &EGraph, class: &Class) -> bool;
 }
 
 pub fn egraph_pass_traverse<V: EGraphVisitor> (
@@ -49,9 +48,9 @@ pub fn egraph_pass_traverse<V: EGraphVisitor> (
     let mut iters = 0;
     while did_something {
         did_something = false;
+        visitor.iter_start();
         for (_, class) in egraph.classes() {
-            if visitor.should_visit(egraph, class) {
-                visitor.visit(egraph, class);
+            if visitor.visit(egraph, class) {
                 did_something = true;
             }
         }

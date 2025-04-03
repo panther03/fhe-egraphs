@@ -18,7 +18,7 @@ def eval_dir(log_f, dir, jobs):
         benches.append(bench)
     units = []
     for bench in benches:
-        units.append((f"{DRIVER_DIR}/bench/lobster/{bench}", None, f"{dir}/{bench}"))
+        units.append((f"{DRIVER_DIR}/bench/esop_optimized/{bench}", None, f"{dir}/{bench}"))
     d = Driver(units, [])
     d.capture_file = log_f
     d.jobs = 1
@@ -28,18 +28,19 @@ def eval_dir(log_f, dir, jobs):
 
 
 def opt_one_esop_wrap(log_f):
-    ESOP_ITERS_LIMIT = 5
+    ESOP_ITERS_LIMIT = 10
     def opt_one_esop(driver, in_file, in_rules, out_file):
         best_md = 0
         best_mc = 0
         iter = 0
         t0 = time.time()
         out_file_tmp = out_file + "_tmp.eqn"
+        eq_ctr = 0
         while iter < ESOP_ITERS_LIMIT:
             if iter % 2 == 0:
                 log_f.write(f"(bench {in_file}) Iter {iter}: eqsat (md={best_md},mc={best_mc})\n")
                 log_f.flush()
-                driver.opt_one(in_file, in_rules, out_file_tmp)
+                driver.opt_one(in_file, in_rules, out_file_tmp, None if iter == 0 else "60")
             else:
                 log_f.write(f"(bench {in_file}) Iter {iter}: esop (md={best_md},mc={best_mc})\n")
                 log_f.flush()
@@ -52,13 +53,18 @@ def opt_one_esop_wrap(log_f):
 
             stats = subprocess.run([CKTCONV_PATH, "stats", out_file_tmp], capture_output=True)
             stats_split = stats.stdout.decode("utf-8").split(",")
-            print(stats_split)
             md = int(stats_split[0])
             mc = int(stats_split[1])
 
             if ((best_md != 0) and (best_mc != 0) and (md * md * mc > best_md * best_md * best_mc)):
                 break
             else:
+                if md == best_md and mc == best_mc:
+                    eq_ctr += 1
+                    if eq_ctr == 2:
+                        break
+                else:
+                    eq_ctr = 0
                 subprocess.run(["cp", out_file_tmp, out_file])
                 best_md = md
                 best_mc = mc
@@ -71,7 +77,7 @@ def opt_one_esop_wrap(log_f):
 
 
 def opt(log_f, rules, base, jobs, opt_func = None):
-    d = Driver.from_benchset_ruleset("all", "lobster", rules, f"{base}/eqsat_{rules}")
+    d = Driver.from_benchset_ruleset("all", "esop_optimized", rules, f"{base}/eqsat_{rules}")
     d.with_bool_rules()
     d.eqsatopt_params = global_params
     d.capture_file = log_f
@@ -90,22 +96,22 @@ if __name__ == "__main__":
     
     f = open(out_base + f"/{mode}.log", 'w')
     if mode == "lobster_eval":
-        jobs = 6 if jobs_override == 0 else jobs_override
+        jobs = 1 if jobs_override == 0 else jobs_override
         eval_dir(f, f"{DRIVER_DIR}/bench/lobster.opt_lobster", jobs)
     elif mode == "eqsat_lobster_opt":
         jobs = 8 if jobs_override == 0 else jobs_override
         opt(f, "lobster", out_base, jobs)
     elif mode == "eqsat_lobster_eval":
-        jobs = 6 if jobs_override == 0 else jobs_override
+        jobs = 1 if jobs_override == 0 else jobs_override
         eval_dir(f, f"{out_base}/eqsat_lobster/opt/", jobs)
     elif mode == "eqsat_mcmd_opt":
-        jobs = 6 if jobs_override == 0 else jobs_override
+        jobs = 4 if jobs_override == 0 else jobs_override
         opt(f, "mcmd", out_base, jobs, opt_func=opt_one_esop_wrap(f))
     elif mode == "eqsat_mcmd_eval":
-        jobs = 6 if jobs_override == 0 else jobs_override
+        jobs = 1 if jobs_override == 0 else jobs_override
         eval_dir(f, f"{out_base}/eqsat_mcmd/opt/", jobs)
     elif mode == "mcmd_eval":
-        jobs = 6 if jobs_override == 0 else jobs_override
+        jobs = 1 if jobs_override == 0 else jobs_override
         eval_dir(f, f"{DRIVER_DIR}/bench/lobster.opt_mcmd", jobs)
     else:
         print(f"unrecognized mode {mode}")

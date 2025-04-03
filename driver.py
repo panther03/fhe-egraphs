@@ -113,7 +113,7 @@ class Driver:
                         print(future.exception())
     
     # parallel executor thing
-    def opt_one(self, in_file, in_rules, out_file):
+    def opt_one(self, in_file, in_rules, out_file, timeout_override=None):
         args = [EQSAT_OPT_PATH, in_file, out_file]
         for rule in self.shared_rules:
             args.append("--rules")
@@ -121,13 +121,18 @@ class Driver:
         for rule in in_rules:
             args.append("--rules")
             args.append(rule)
-        for (param,param_val) in self.eqsatopt_params.items():
+        local_eqsatopt_params = self.eqsatopt_params.copy()
+        if timeout_override:
+            local_eqsatopt_params["--egg-time-limit"] = timeout_override
+
+        for (param,param_val) in local_eqsatopt_params.items():
             if param == "mode":
                 continue
             args.append(f"{param}")
             if param_val:
-                args.append(str(param_val))                
-        (mode, mode_params) = self.eqsatopt_params["mode"]
+                args.append(str(param_val))          
+        
+        (mode, mode_params) = local_eqsatopt_params["mode"]
         args.append(mode)
         for (mode_param,mode_param_val) in mode_params.items():
             args.append(f"{mode_param}")
