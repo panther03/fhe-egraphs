@@ -611,7 +611,8 @@ pub fn calc_bounds(
     let classes: Vec<(&ClassId, &egraph_serialize::Class)> = egraph.classes().iter().collect();
     let results: Vec<_> = classes
         .par_iter()
-        .map(|(cid, _)| {
+        .map(|(cid, c)| {
+            if (c.nodes.len() <= 1) { return None }
             let mut slack = SlackNaive::new(**cid);
             let iters: usize = traverse::egraph_pass_traverse(&egraph, &mut slack);
             
@@ -1029,11 +1030,11 @@ mod tests {
         dbg!(pruned.number_of_classes());
         dbg!(egraph.classes().len());
         dbg!(egraph.nodes.len());
-        let results = global_greedy_dag::mc_extract(&egraph, &out_eclasses, HashMap::new(), &bounds);
-        let highlight: HashMap<NodeId, usize> = results.iter().map(|(k,v)| (v.1, v.0)).collect();
-
-        ser_egraph_to_dot::<i32>(&egraph, &annot, &highlight, "egraph.dot");
-
+        //let results = global_greedy_dag::mc_extract(&egraph, &out_eclasses, HashMap::new(), &bounds);
+        //let highlight: HashMap<NodeId, usize> = results.iter().map(|(k,v)| (v.1, v.0)).collect();
+//
+        //ser_egraph_to_dot::<i32>(&egraph, &annot, &highlight, "egraph.dot");
+//
         /*let pruned = egraph_prune(&egraph, &out_eclasses);
         println!("Pruned {}% of e-graph", (pruned.len() as f32 / egraph.nodes.len() as f32 * 100.));
         

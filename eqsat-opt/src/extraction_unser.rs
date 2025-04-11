@@ -26,14 +26,14 @@ impl egg::CostFunction<Prop> for MultComplexity {
     }
 }
 
-//impl<N: Analysis<Prop>> LpCostFunction<Prop, N> for MultComplexity {
-//    fn node_cost(&mut self, _egraph: &EGraph<Prop, N>, _eclass: Id, enode: &Prop) -> f64 {
-//        match enode {
-//            Prop::And(..) => 1.0,
-//            _ => 0.0,
-//        }
-//    }
-//}
+impl<N: Analysis<Prop>> LpCostFunction<Prop, N> for MultComplexity {
+    fn node_cost(&mut self, _egraph: &EGraph<Prop, N>, _eclass: Id, enode: &Prop) -> f64 {
+        match enode {
+            Prop::And(..) => 1.0,
+            _ => 0.0,
+        }
+    }
+}
 
 pub struct MultDepth;
 impl egg::CostFunction<Prop> for MultDepth {
@@ -246,7 +246,7 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<Strin
                 netd.push(';');
             }
             Prop::Bool(b) => {
-                netd.push_str(if *b { "true;" } else { "false;" });
+                netd.push_str(if *b { "1;" } else { "0;" });
             }
             Prop::Concat(outs ) => {
                 for ((o_name, _), o_id) in out_net_to_eclass.iter().zip(outs.iter()) {

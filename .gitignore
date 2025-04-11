@@ -6,3 +6,4 @@ helib.log
 egraph.json
 *.csv
 __pycache__/
+*.trace

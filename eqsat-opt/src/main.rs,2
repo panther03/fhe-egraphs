@@ -626,7 +626,6 @@ impl EqsatOptimizer {
         //let sat_egraph = self.saturate(initial_egraph, None, true);
         let sat_time = Instant::now() - start_time;
 
-        let mut initial_egraph = initial_egraph.clone();
         // extraction
         let outnode_ids: Vec<Id> = self
             .out_net_to_eclass
@@ -634,20 +633,19 @@ impl EqsatOptimizer {
             .into_iter()
             .map(|x| *x)
             .collect();
-        let concat_node = initial_egraph.add(Prop::Concat(outnode_ids));
-        let mut extractor = LpExtractor::new(&initial_egraph, extraction_unser::MultComplexity, &[concat_node], depth_bound);
-        extractor.timeout(600.0); // way too much time
+        let mut extractor = LpExtractor::new(&initial_egraph, extraction_unser::MultComplexity, &outnode_ids, depth_bound);
+        extractor.timeout(300.0); // way too much time
         
-        let Some((exp, _)) = extractor.solve_multiple(&[concat_node]) else { return None };
+        let Some((exp, expr_outnode_ids)) = extractor.solve_multiple(outnode_ids.as_slice()) else { return None };
         let mc = exp.iter().filter(|p| match p {
             Prop::And(_) => true,
             _ => false
         }).count();
-        //let egraph_to_recexpr_ids =
-        //    (outnode_ids.into_iter().zip(expr_outnode_ids.into_iter())).collect::<HashMap<_, _>>();
-        //self.out_net_to_eclass.iter_mut().for_each(|(_, v)| {
-        //    *v = *egraph_to_recexpr_ids.get(v).unwrap_or(v);
-        //});
+        let egraph_to_recexpr_ids =
+            (outnode_ids.into_iter().zip(expr_outnode_ids.into_iter())).collect::<HashMap<_, _>>();
+        self.out_net_to_eclass.iter_mut().for_each(|(_, v)| {
+            *v = *egraph_to_recexpr_ids.get(v).unwrap_or(v);
+        });
         let extract_time = Instant::now() - start_time;
         Some((
             extraction_unser::recexpr_traversal(exp, &self.out_net_to_eclass),
@@ -1071,7 +1069,7 @@ fn main() {
             dbg!(md);
             dbg!(best_cost/(md*md) as u64);
             for i in 0..iters+1 {
-                let md_i = if i == 0 { 999} else {md + i-1};
+                let md_i = if i == iters { 999} else {md + i};
                 let Some((network, _, mc)) = opter.clone().mc_ilp_flow(&start_egraph, md_i) else { continue };
                 let he_cost_i = (md_i * md_i) as u64 * mc;
                 if he_cost_i < best_cost {

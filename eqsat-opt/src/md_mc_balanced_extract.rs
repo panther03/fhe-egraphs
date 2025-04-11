@@ -103,10 +103,7 @@ impl TermDag {
                 .unwrap();
             let local_cost = (node.cost.round()) as usize;
 
-            
-            if (bounds.get(&node.eclass).is_none()) {
-                println!("um:: {}", node.eclass);
-            }
+        
             if (deepest_child + local_cost) as i32 > *bounds.get(&node.eclass).unwrap_or(&0) {
                 return None;
             }

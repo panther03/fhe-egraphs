@@ -112,6 +112,9 @@ where
     use egraph_serialize::*;
     let mut out = EGraph::default();
     for class in egraph.classes() {
+        if egraph.find(class.id) != class.id {
+            continue;
+        }
         for (i, node) in class.nodes.iter().enumerate() {
             out.add_node(
                 NodeId::new(i as u32, class.id.into()),
@@ -120,7 +123,7 @@ where
                     children: node
                         .children()
                         .iter()
-                        .map(|id| NodeId::new(0, (*id).into()))
+                        .map(|id| NodeId::new(0, (egraph.find(*id)).into()))
                         .collect(),
                     eclass: ClassId::new(class.id.into()),
                     cost: Cost::new(if node.to_string() == "*" { 1.0 } else {0.0}).unwrap(), // TODO placeholder only works on empty egraph

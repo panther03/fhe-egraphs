@@ -7,7 +7,7 @@ edition = "2021"
 bitcode = "0.6.3"
 clap = { version = "4.5.32", features = ["derive"] }
 #egg = { version = "0.9.5", features = ["lp"] }
-egg = { path = "deps/egg" }
+egg = { path = "deps/egg", features = ["lp"] }
 egraph-serialize = { path = "deps/egraph-serialize" }
 env_logger = "0.11.5"
 indexmap = "2.7.1"

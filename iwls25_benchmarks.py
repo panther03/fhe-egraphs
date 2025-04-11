@@ -3,12 +3,15 @@ import os
 import time
 
 from driver import *
+import driver
+driver.DEBUG = True
 
 # Pool extraction disabled
 # Strict 300 second timeout
 global_params = {
-    "mode": ("md-multiple-iters", ({"--iters": "1", "--num-candidates": "0"})),
+    "mode": ("md-multiple-iters", ({"--iters": "4", "--num-candidates": "0"})),
     "--egg-time-limit": "300",
+    "--egg-iter-limit": "0",
     "--strict-deadlines": None
 }
 
@@ -77,7 +80,7 @@ def opt_one_esop_wrap(log_f):
 
 
 def opt(log_f, rules, base, jobs, opt_func = None):
-    d = Driver.from_benchset_ruleset("all", "esop_optimized", rules, f"{base}/eqsat_{rules}")
+    d = Driver.from_benchset_ruleset("all", "lobster", rules, f"{base}/eqsat_{rules}")
     d.with_bool_rules()
     d.eqsatopt_params = global_params
     d.capture_file = log_f
@@ -100,7 +103,7 @@ if __name__ == "__main__":
         eval_dir(f, f"{DRIVER_DIR}/bench/lobster.opt_lobster", jobs)
     elif mode == "eqsat_lobster_opt":
         jobs = 8 if jobs_override == 0 else jobs_override
-        opt(f, "lobster", out_base, jobs)
+        opt(f, None, out_base, jobs)
     elif mode == "eqsat_lobster_eval":
         jobs = 1 if jobs_override == 0 else jobs_override
         eval_dir(f, f"{out_base}/eqsat_lobster/opt/", jobs)
