@@ -9,6 +9,7 @@ use rand::SeedableRng;
 use serde::deserialize_into_existing;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::f32::consts::E;
 use std::io::Seek;
 use std::io::Write;
 use std::ops::Index;
@@ -61,134 +62,28 @@ fn parse_rules(rules: &mut Vec<Rewrite<Prop, ()>>, rules_string: &str) {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum Token {
-    Not,
-    And,
-    Xor,
-    Or,
-    Concat,
-    LParen,
-    RParen,
-    Lit(u32),
-    Ident(String),
-}
+fn egraph_init_from_pis(innodes: &str) -> (EGraph<Prop, ()>, HashMap<String, Id>) {
+    let mut egraph = EGraph::<Prop, ()>::default();
 
-pub fn lex(source: &str) -> Vec<Token> {
-    let source_surround = format!("({})", source);
+    let mut ckt_node_to_eclass: HashMap<String, Id> = HashMap::new();
+    ckt_node_to_eclass.insert("true".to_string(), egraph.add(Prop::Bool(true)));
+    ckt_node_to_eclass.insert("false".to_string(), egraph.add(Prop::Bool(false)));
 
-    let mut tokens = Vec::new();
-    let mut ctr = -1;
-    let mut flush: bool;
-    let mut curr_token = String::new();
-    let mut new_tokens: Vec<Token> = Vec::new();
-    for char in source_surround.chars() {
-        flush = true;
-        match char {
-            '(' => new_tokens.push(Token::LParen),
-            ')' => new_tokens.push(Token::RParen),
-            '!' => {
-                ctr = 1;
-                new_tokens.push(Token::LParen);
-                new_tokens.push(Token::Not)
-            }
-            '*' => new_tokens.push(Token::And),
-            '+' => new_tokens.push(Token::Or),
-            '^' => new_tokens.push(Token::Xor),
-            '$' => new_tokens.push(Token::Concat),
-            ' ' | ';' => {}
-            _ => {
-                curr_token.push(char);
-                flush = false;
-            }
-        }
-
-        if flush && !curr_token.is_empty() {
-            if let Ok(l) = curr_token.parse::<u32>() {
-                tokens.push(Token::Lit(l))
-            } else {
-                match curr_token.as_str() {
-                    "and" => tokens.push(Token::And),
-                    "or" => tokens.push(Token::Or),
-                    "xor" => tokens.push(Token::Xor),
-                    "not" => tokens.push(Token::Not),
-                    "false" => tokens.push(Token::Lit(0)),
-                    "true" => tokens.push(Token::Lit(1)),
-                    _ => tokens.push(Token::Ident(curr_token.clone())),
-                }
-            }
-            curr_token = String::new();
-            ctr -= 1;
-        }
-
-        tokens.append(&mut new_tokens);
-        if ctr == 0 {
-            tokens.push(Token::RParen);
-            ctr = -1;
-        }
+    for innode in innodes.split(" ") {
+        let id = egraph.add(Prop::Symbol(Symbol::new(innode)));
+        ckt_node_to_eclass.insert(innode.to_string(), id);
     }
-    tokens
+    (egraph, ckt_node_to_eclass)
 }
 
-fn add_expr(egraph: &mut EGraph<Prop, ()>, sexpr: &str, ind2eclass: &Vec<Id>) -> Id {
-    let tok: Vec<Token> = lex(sexpr);
-    // filter out lparen and rparen from sexpr while keeping the type the same
-    let mut postfix: Vec<Token> = tok
-        .into_iter()
-        .filter(|t| match t {
-            Token::LParen | Token::RParen => false,
-            _ => true,
-        })
-        .collect();
-    postfix.reverse();
-    let mut nodes: Vec<Id> = Vec::new();
-    for token in postfix {
-        let new_node = match token {
-            Token::And => {
-                let n1 = nodes.pop().unwrap();
-                let n2 = nodes.pop().unwrap();
-                egraph.add(Prop::And([n1, n2]))
-            }
-            Token::Xor => {
-                let n1 = nodes.pop().unwrap();
-                let n2 = nodes.pop().unwrap();
-                egraph.add(Prop::Xor([n1, n2]))
-            }
-            Token::Not => {
-                let n1 = nodes.pop().unwrap();
-                egraph.add(Prop::Not(n1))
-            }
-            // Note: there is no node 1, it will always be represented as !0
-            Token::Lit(idx) => egraph.find(ind2eclass[idx as usize]),
-            _ => panic!("unrecognized token"),
-        };
-        nodes.push(new_node);
-    }
-    assert!(nodes.len() == 1);
-    nodes.pop().unwrap()
-}
+fn egraph_from_seqn_trace(
+    innodes: &str,
+    outnodes: &str,
+    trace: &str
+) -> EqsatOptimizer {
+    let (mut egraph, _) = egraph_init_from_pis(innodes);
+    let num_pis = innodes.split(" ").count();
 
-use std::process::Command;
-fn fill_egraph_jefco(
-    egraph: &mut EGraph<Prop, ()>,
-    seqn_path: &std::path::Path,
-    num_pis: usize,
-) -> Vec<Id> {
-    //println!("Starting jefco miner");
-    let trace_p = format!(
-        "out_{}.trace",
-        seqn_path.file_stem().unwrap().to_str().unwrap()
-    );
-    let seqn_path = seqn_path.as_os_str().to_str().unwrap();
-    let trace = Command::new("esop_paper")
-        .arg(seqn_path)
-        .arg(format!("{}_ref.eqn", seqn_path))
-        .output()
-        .expect("failed to execute jefco rule miner");
-    //println!("Complete mining");
-    let mut f = std::fs::File::create(trace_p).unwrap();
-    f.write_all(&trace.stdout).unwrap();
-    let trace = String::from_utf8(trace.stdout).unwrap();
     let mut committed: Vec<&str> = Vec::new();
     let mut temp: Vec<&str> = Vec::new();
     for insn in trace.lines() {
@@ -207,6 +102,7 @@ fn fill_egraph_jefco(
     committed.append(&mut temp);
     let mut pos: Vec<Id> = Vec::new();
     let mut index_map: HashMap<usize, Id> = HashMap::new();
+    let mut prev_index_map: HashMap<usize, Id> = HashMap::new();
     // mapping to false e-class
     index_map.insert(0, Id::from(1 as usize));
     for i in 0..num_pis {
@@ -217,35 +113,44 @@ fn fill_egraph_jefco(
         let mut insn = insn_s.split(" ");
         let op = insn.next().unwrap();
         match op {
+            "L" => {
+                let old: usize = insn.next().unwrap().parse().unwrap();
+                let compl: u32 = insn.next().unwrap().parse().unwrap();
+                let new: usize = insn.next().unwrap().parse().unwrap();
+                let new_n = if compl == 1 {
+                    egraph.add(Prop::Not(prev_index_map[&old]))
+                } else {
+                    prev_index_map[&old]
+                };
+                index_map.insert(new, new_n);
+            }
             "X" | "A" => {
                 let n: usize = insn.next().unwrap().parse().unwrap();
-                let ac: u32 = insn.next().unwrap().parse().unwrap();
-                let a: usize = insn.next().unwrap().parse().unwrap();
-                let bc: u32 = insn.next().unwrap().parse().unwrap();
-                let b: usize = insn.next().unwrap().parse().unwrap();
-                let a = if ac == 1 {
-                    egraph.add(Prop::Not(index_map[&a]))
-                } else {
-                    index_map[&a]
-                };
-                if !index_map.contains_key(&b) {
-                    dbg!(ind);
-                    dbg!(insn_s);
+                // don't re-add nodes and overwrite the id, because they might be aliased and structurally not equivalent
+                if !index_map.contains_key(&n) {
+                    let ac: u32 = insn.next().unwrap().parse().unwrap();
+                    let a: usize = insn.next().unwrap().parse().unwrap();
+                    let bc: u32 = insn.next().unwrap().parse().unwrap();
+                    let b: usize = insn.next().unwrap().parse().unwrap();
+                    let a = if ac == 1 {
+                        egraph.add(Prop::Not(index_map[&a]))
+                    } else {
+                        index_map[&a]
+                    };
+                    let b = if bc == 1 {
+                        egraph.add(Prop::Not(index_map[&b]))
+                    } else {
+                        index_map[&b]
+                    };
+                    let nid = if op == "X" {
+                        egraph.add(Prop::Xor([a, b]))
+                    } else {
+                        egraph.add(Prop::And([a, b]))
+                    };
+                    index_map.insert(n, nid);
                 }
-                let b = if bc == 1 {
-                    egraph.add(Prop::Not(index_map[&b]))
-                } else {
-                    index_map[&b]
-                };
-                let nid = if op == "X" {
-                    egraph.add(Prop::Xor([a, b]))
-                } else {
-                    egraph.add(Prop::And([a, b]))
-                };
-                index_map.insert(n, nid);
             }
             "O" => {
-                // ignore index
                 let ind: usize = insn.next().unwrap().parse().unwrap();
                 let compl: u32 = insn.next().unwrap().parse().unwrap();
                 let po_n: usize = insn.next().unwrap().parse().unwrap();
@@ -258,6 +163,7 @@ fn fill_egraph_jefco(
                     assert!(ind == pos.len());
                     pos.push(po_n);
                 } else {
+                    egraph.union(pos[ind], po_n);
                     pos[ind] = po_n;
                 }
             }
@@ -274,7 +180,9 @@ fn fill_egraph_jefco(
                 egraph.union(c, new_n);
             }
             "CLEAR" => {
-                // actually necessary or just a suggestion?
+                if index_map.len() != (num_pis + 1) {
+                    prev_index_map = index_map.clone();
+                }
                 index_map.clear();
                 index_map.insert(0, Id::from(1 as usize));
                 for i in 0..num_pis {
@@ -287,45 +195,38 @@ fn fill_egraph_jefco(
         }
         ind += 1;
     }
-    pos
-    /*for rule in rules.lines() {
-        let mut split = rule.split("=>");
-        let root: usize = split.next().unwrap().parse().expect("could not parse LHS of rule as int");
-
-        let root = egraph.find(Id::from(ind2eclass[root]));
-        let sexpr = split.next().unwrap();
-        let replace_id = add_expr(egraph, sexpr, ind2eclass);
-        let replace_id = egraph.find(replace_id);
-
-        egraph.union(root, replace_id);
-        egraph.rebuild();
-        ind += 1;
-    }*/
+    // re-canonicalize e-graph
+    let egraph_c = egraph.clone(); 
+    egraph.classes_mut().for_each(|c| {
+        c.nodes.iter_mut().for_each(|n| {
+            n.children_mut().iter_mut().for_each(|c| {
+                *c = egraph_c.find(* c); 
+            });
+        });
+    });
+    for po in pos.iter_mut() {
+        *po = egraph.find(*po);
+    }
+    let out_net_to_eclass: IndexMap<String, Id> = outnodes.split(" ").into_iter().enumerate().map(|(po_ind, po_net)| (po_net.to_string(), pos[po_ind])).collect();
+    let concat_node = egraph.add(Prop::Concat(pos));
+    EqsatOptimizer {
+        egraph,
+        rules: Vec::new(),
+        concat_node,
+        out_net_to_eclass,
+        params: OptimizerParams::default(),
+        stats: OptimizerStats::default().with_egraph_stats(&egraph_c)
+    }
 }
 
 fn egraph_from_seqn(
     innodes: &str,
     outnodes: &str,
     eqns: &str,
-    explanations_enabled: bool,
-) -> (EGraph<Prop, ()>, IndexMap<String, Id>, Option<Id>, Vec<Id>) {
-    let mut egraph = EGraph::<Prop, ()>::default();
-    if explanations_enabled {
-        egraph = egraph.with_explanations_enabled();
-    }
-    let mut ckt_node_to_eclass: HashMap<String, Id> = HashMap::new();
-    ckt_node_to_eclass.insert("true".to_string(), egraph.add(Prop::Bool(true)));
-    ckt_node_to_eclass.insert("false".to_string(), egraph.add(Prop::Bool(false)));
-    let mut ind2eclass = vec![*ckt_node_to_eclass.get("false").unwrap()];
-    for innode in innodes.split(" ") {
-        //println!("{}", innode);
-        let id = egraph.add(Prop::Symbol(Symbol::new(innode)));
-        ckt_node_to_eclass.insert(innode.to_string(), id);
-        ind2eclass.push(id);
-    }
+) -> EqsatOptimizer {
+    let (mut egraph, mut ckt_node_to_eclass) = egraph_init_from_pis(innodes);
 
     for (_, eqn) in eqns.lines().into_iter().enumerate() {
-        continue;
         let mut split = eqn.split("=");
         let lhs = split.next().unwrap();
         let mut rhs = split.next().unwrap().split(";");
@@ -345,41 +246,6 @@ fn egraph_from_seqn(
             }
         }
 
-        /*let src1 = ckt_node_to_eclass.get(src1_s);
-        let src2 = ckt_node_to_eclass.get(src2_s);
-        let mut new_ind = false;
-        let id = match op {
-            "^" => {
-                let mut enode = Prop::Xor([
-                    src1.unwrap().to_owned(),
-                    src2.unwrap().to_owned(),
-                ]);
-                match egraph.lookup(&mut enode) {
-                    None => {new_ind = true; egraph.add(enode)},
-                    Some(c) => c
-                }
-                },
-            "*" => {
-                let mut enode = Prop::And([
-                    src1.unwrap().to_owned(),
-                    src2.unwrap().to_owned(),
-                ]);
-                match egraph.lookup(&mut enode) {
-                    None => {new_ind = true; egraph.add(enode)},
-                    Some(c) => c
-                }
-             },
-            "!" => {
-                let mut enode = Prop::Not(src1.unwrap().to_owned());
-                match egraph.lookup(&mut enode) {
-                    None => {new_ind = true; egraph.add(enode)},
-                    Some(c) => c
-                }
-            },
-            "w" => src1.unwrap().to_owned(),
-            _ => panic!("unrecognized op {}", op),
-        };*/
-
         let src1 = ckt_node_to_eclass.get(src1_s);
         let src2 = ckt_node_to_eclass.get(src2_s);
         let id = match op {
@@ -395,47 +261,92 @@ fn egraph_from_seqn(
             "w" => src1.unwrap().to_owned(),
             _ => panic!("unrecognized op {}", op),
         };
-        ind2eclass.push(id);
         ckt_node_to_eclass.insert(lhs.to_string(), id);
     }
     let mut out_net_to_eclass: IndexMap<String, Id> = IndexMap::new();
     let mut outnodes_vec: Vec<Id> = Vec::new();
     for outnode in outnodes.split(" ") {
-        //let outnode_id = egraph.find(*ckt_node_to_eclass.get(outnode).unwrap());
-        //outnodes_vec.push(outnode_id);
-        out_net_to_eclass.insert(outnode.to_string(), Id::from(std::usize::MAX));
+        let outnode_id = egraph.find(*ckt_node_to_eclass.get(outnode).unwrap());
+        outnodes_vec.push(outnode_id);
+        out_net_to_eclass.insert(outnode.to_string(),outnode_id);
     }
-    let concat_id = if explanations_enabled {
-        let mut concat_node = egraph.add(Prop::Concat2([outnodes_vec[0], outnodes_vec[1]]));
-        for n in &outnodes_vec[2..] {
-            concat_node = egraph.add(Prop::Concat2([concat_node, *n]));
-        }
-        // Some(egraph.add(Prop::Concat(outnodes_vec)))
-        Some(concat_node)
-    } else {
-        None
-    };
-    (egraph, out_net_to_eclass, concat_id, ind2eclass)
+
+    /*egraph.add(Prop::Concat2([outnodes_vec[0], outnodes_vec[1]]));
+    for n in &outnodes_vec[2..] {
+        concat_node = egraph.add(Prop::Concat2([concat_node, *n]));
+    }*/
+
+    //let concat_node = egraph.add(Prop::Concat(outnodes_vec));
+    EqsatOptimizer {
+        egraph,
+        concat_node: egg::Id::from(0 as usize),
+        rules: Vec::new(),
+        out_net_to_eclass,
+        params: OptimizerParams::default(),
+        stats: OptimizerStats::default()
+    }
 }
 
 //////////////////////////
 // Equality Saturation //
 ////////////////////////
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 struct OptimizerParams {
     time_limit: u64,
     node_limit: usize,
     iter_limit: usize,
+    ilp_time_limit: f64,
     comm_matching: bool,
     strict_deadlines: bool,
 }
 
-#[derive(Clone)]
+
+struct OptimizerStats {
+    final_eclasses: usize,
+    final_enodes: usize,
+    sat_time: Duration,
+    extract_time: Duration,
+}
+
+impl Default for OptimizerStats {
+    fn default() -> Self {
+        Self {
+            final_eclasses: 0,
+            final_enodes: 0,
+            sat_time: Duration::from_micros(0),
+            extract_time: Duration::from_micros(0)
+        }
+    }
+}
+
+impl OptimizerStats {
+    fn with_egraph_stats(mut self, egraph: &EGraph<Prop, ()>) -> Self {
+        self.final_eclasses = egraph.number_of_classes();
+        self.final_enodes = egraph.total_number_of_nodes();
+        self
+    }
+
+    fn set_egraph_stats(&mut self, egraph: &EGraph<Prop, ()>) {
+        self.final_eclasses = egraph.number_of_classes();
+        self.final_enodes = egraph.total_number_of_nodes();
+    }
+
+    fn set_saturation_time(&mut self, time: Duration) {
+        self.sat_time = time;
+    }
+
+    fn set_extraction_time(&mut self, time: Duration) {
+        self.extract_time = time;
+    }
+}
+
 struct EqsatOptimizer {
+    egraph: EGraph<Prop, ()>,
     rules: Vec<Rewrite<Prop, ()>>,
+    concat_node: Id,
     out_net_to_eclass: IndexMap<String, Id>,
-    new_to_old: HashMap<Id, Id>,
     params: OptimizerParams,
+    stats: OptimizerStats 
 }
 
 fn find_cycles<L, N>(egraph: &EGraph<L, N>, mut f: impl FnMut(Id, usize))
@@ -476,121 +387,30 @@ where
     }
 }
 
-fn lock_in_random_nodes(
-    egraph: &egraph_serialize::EGraph,
-    cycle_classes: &HashSet<egraph_serialize::ClassId>,
-    alpha: f64,
-    seed: u64,
-) -> HashMap<egraph_serialize::ClassId, NodeId> {
-    let mut locked = HashMap::new();
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-    for (cid, class) in egraph.classes() {
-        if !cycle_classes.contains(cid) && rng.random_range(0.0..1.0) > alpha {
-            let ind = rng.random_range(0..class.nodes.len());
-            locked.insert(*cid, class.nodes[ind]);
-        }
-    }
-    locked
-}
-
-fn pool_extract(
-    egraph: &egraph_serialize::EGraph,
-    out_net_to_eclass: &IndexMap<String, Id>,
-    cycle_classes: &HashSet<egraph_serialize::ClassId>,
-    num_candidates: usize,
-    alpha: f64,
-) -> (u64, String) {
-    // TODO: actually 1st candidate should be the original network
-    //let mut cost_analysis =
-    //    global_greedy_dag::mc_extract(old_egraph, &old_egraph.root_eclasses, HashMap::new());
-    //let (mut best_cost, mut best_network) =
-    //    extraction_ser::dag_network_writer(old_egraph, &mut cost_analysis, old_out_net_to_eclass);
-
-    let mut best_cost = std::u64::MAX;
-    let mut best_network = String::new();
-
-    for i in 0..num_candidates + 1 {
-        let alpha = if i == 0 { 1.0 } else { alpha };
-        let locked = lock_in_random_nodes(egraph, cycle_classes, alpha, i as u64);
-        let mut cost_analysis =
-            global_greedy_dag::mc_extract(egraph, &egraph.root_eclasses, locked);
-        let (he_cost, ntk) =
-            extraction_ser::dag_network_writer(egraph, &mut cost_analysis, out_net_to_eclass);
-
-        //println!("Candidate {i}: HE cost {}", he_cost);
-        if he_cost < best_cost {
-            best_cost = he_cost;
-            best_network = ntk;
-        }
-    }
-    (best_cost, best_network)
-}
-/*
-fn pool_extract(
-    egraph: &egraph_serialize::EGraph,
-    old_egraph: &egraph_serialize::EGraph,
-    old_out_net_to_eclass: &IndexMap<String, Id>,
-    out_net_to_eclass: &IndexMap<String, Id>,
-    bounds: &HashMap<egraph_serialize::ClassId, i32>,
-    cycle_classes: &HashSet<egraph_serialize::ClassId>,
-    num_candidates: usize,
-    alpha: f64,
-) -> (u64,String) {
-    // TODO: actually 1st candidate should be the original network
-    //let mut cost_analysis =
-    //    global_greedy_dag::mc_extract(old_egraph, &old_egraph.root_eclasses, HashMap::new(), &bounds);
-    //let (mut best_cost, mut best_network) =
-    //    extraction_ser::dag_network_writer(old_egraph, &mut cost_analysis, old_out_net_to_eclass);
-
-    let mut best_cost = std::u64::MAX;
-    let mut best_network = String::new();
-
-    for i in 0..num_candidates + 1 {
-        let alpha = if i == 0 { 1.0 } else { alpha };
-        //let locked = lock_in_random_nodes(egraph, cycle_classes, alpha, i as u64);
-        let mut cost_analysis =
-            global_greedy_dag::mc_extract(egraph, &egraph.root_eclasses, HashMap::new(), bounds);
-            //md_mc_balanced_extract::mc_extract(egraph, &egraph.root_eclasses, bounds);
-        let (he_cost, ntk) =
-            extraction_ser::dag_network_writer(egraph, &mut cost_analysis, out_net_to_eclass);
-
-        //println!("Candidate {i}: HE cost {}", he_cost);
-        if he_cost < best_cost {
-            best_cost = he_cost;
-            best_network = ntk;
-        }
-    }
-    (best_cost, best_network)
-}*/
-
 impl EqsatOptimizer {
-    fn new(
-        rules: Vec<Rewrite<Prop, ()>>,
-        out_net_to_eclass: IndexMap<String, Id>,
-        params: OptimizerParams,
-    ) -> Self {
-        Self {
-            rules,
-            out_net_to_eclass,
-            new_to_old: HashMap::new(),
-            params,
-        }
+    fn with_rules(mut self, rules: Vec<Rewrite<Prop, ()>>) -> Self {
+        self.rules = rules;
+        self
     }
 
-    fn saturate(
+    fn with_params(mut self, params: OptimizerParams) -> Self {
+        self.params = params;
+        self
+    }
+
+    fn saturate_egg (
         &mut self,
-        new_egraph: EGraph<Prop, ()>,
-        old_egraph: Option<&EGraph<Prop, ()>>,
-        comm_matching_override: bool,
-    ) -> EGraph<Prop, ()> {
+    ) {
+        let start_time = Instant::now();
+        dbg!(&self.params);
         let runner = Runner::default()
-            .with_egraph(new_egraph)
+            .with_egraph(self.egraph.clone())
             .with_time_limit(Duration::from_secs(self.params.time_limit))
             .with_node_limit(self.params.node_limit)
             .with_iter_limit(self.params.iter_limit);
         //.with_scheduler(BackoffScheduler::default().with_initial_match_limit(100))
 
-        let runner = if comm_matching_override {
+        let runner = if self.params.comm_matching {
             runner
         } else {
             runner.without_comm_matching()
@@ -601,12 +421,14 @@ impl EqsatOptimizer {
             runner
         };
 
+        dbg!(self.rules.len());
         let runner = runner.run(self.rules.iter());
 
         // Remap output net IDs.
         for (_, id) in self.out_net_to_eclass.iter_mut() {
             *id = runner.egraph.find(*id);
         }
+        self.concat_node = runner.egraph.find(self.concat_node);
 
         // Create mapping from new -> old based on saturation
         // PRECONDITION: new_egraph must have been created or cloned from old_egraph initially (otherwise find is meaningless)
@@ -617,301 +439,65 @@ impl EqsatOptimizer {
         //            .insert(runner.egraph.find(class.id), class.id);
         //    }
         //}
-        runner.egraph
-    }
-
-    fn mc_ilp_flow(mut self, initial_egraph: &EGraph<Prop, ()>, depth_bound: usize) -> Option<(String, FlowStats, u64)> {
-        let start_time = Instant::now();
-        // saturation
-        //let sat_egraph = self.saturate(initial_egraph, None, true);
         let sat_time = Instant::now() - start_time;
 
-        let mut initial_egraph = initial_egraph.clone();
+        self.stats.set_egraph_stats(&runner.egraph);
+        self.stats.set_saturation_time(sat_time);
+        self.egraph = runner.egraph;
+    }
+
+    fn mc_ilp_extract(&mut self, depth_bound: Option<usize>) -> Option<(u64, u64, String)> {
+        let start_time = Instant::now();
+
         // extraction
-        let outnode_ids: Vec<Id> = self
-            .out_net_to_eclass
-            .values()
-            .into_iter()
-            .map(|x| *x)
-            .collect();
-        let concat_node = initial_egraph.add(Prop::Concat(outnode_ids));
-        let mut extractor = LpExtractor::new(&initial_egraph, extraction_unser::MultComplexity, &[concat_node], depth_bound);
-        extractor.timeout(600.0); // way too much time
+        let mut extractor = LpExtractor::new(&self.egraph, extraction_unser::MultComplexity, &[self.concat_node], depth_bound);
+        extractor.timeout(self.params.ilp_time_limit); // way too much time
         
-        let Some((exp, _)) = extractor.solve_multiple(&[concat_node]) else { return None };
+        let Some((exp, _)) = extractor.solve_multiple(&[self.concat_node]) else { return None };
         let mc = exp.iter().filter(|p| match p {
             Prop::And(_) => true,
             _ => false
-        }).count();
-        //let egraph_to_recexpr_ids =
-        //    (outnode_ids.into_iter().zip(expr_outnode_ids.into_iter())).collect::<HashMap<_, _>>();
-        //self.out_net_to_eclass.iter_mut().for_each(|(_, v)| {
-        //    *v = *egraph_to_recexpr_ids.get(v).unwrap_or(v);
-        //});
+        }).count() as u64;
+
         let extract_time = Instant::now() - start_time;
-        Some((
-            extraction_unser::recexpr_traversal(exp, &self.out_net_to_eclass),
-            FlowStats {
-                final_eclasses: initial_egraph.number_of_classes(),
-                final_enodes: initial_egraph.total_number_of_nodes(),
-                sat_time,
-                extract_time,
-            },
-            mc as u64
-        ))
-    } 
-
-    fn md_explain_flow(
-        mut self,
-        initial_egraph: EGraph<Prop, ()>,
-        concat_node: Id,
-    ) -> (String, FlowStats) {
-        let start_time = Instant::now();
-        // saturation
-        let start_expr = initial_egraph.id_to_expr(concat_node);
-        let mut sat_egraph = self.saturate(initial_egraph, None, true);
-        let sat_time = Instant::now() - start_time;
-
-        // extraction
-        let extractor = Extractor::new(&sat_egraph, extraction_unser::MultDepth);
-        let (_, best_node) = extractor.find_best(sat_egraph.find(concat_node));
-        let explanation = sat_egraph.explain_equivalence(&start_expr, &best_node);
-        println!("{}", explanation.get_string());
-        let extract_time = Instant::now() - start_time - sat_time;
-
-        (
-            extraction_unser::recexpr_traversal(best_node, &self.out_net_to_eclass),
-            FlowStats {
-                final_eclasses: sat_egraph.number_of_classes(),
-                final_enodes: sat_egraph.total_number_of_nodes(),
-                sat_time,
-                extract_time,
-            },
-        )
+        self.stats.set_extraction_time(extract_time);
+        let (md, ntk) = extraction_unser::recexpr_traversal(exp, &self.out_net_to_eclass);
+        Some((md, mc, ntk))
     }
 
-    fn md_vanilla_flow(
-        mut self,
-        initial_egraph: EGraph<Prop, ()>,
-        concat_node: Id,
-    ) -> (String, FlowStats) {
+    fn mc_md_dag(&mut self) -> (u64, u64, String) {
         let start_time = Instant::now();
-        // saturation
-        let sat_egraph = self.saturate(initial_egraph, None, true);
-        let sat_time = Instant::now() - start_time;
+        let egraph_ser = serde::serialize_in_mem(&self.egraph, self.out_net_to_eclass.values().into_iter());
+        //let mut cycles: HashMap<NodeId, usize> = HashMap::new();
+        //find_cycles(&self.egraph, |id, i| {
+        //    let id: usize = id.into();
+        //    let n = NodeId::new(i as u32, id as u32);
+        //    dbg!(n);
+        //    cycles.insert(n, 0);
+        //});
+        //extraction_ser::ser_egraph_to_dot::<&str>(&egraph_ser, &HashMap::new(), &cycles, "out.dot");
 
-        // extraction
-        let extractor = Extractor::new(&sat_egraph, egg::AstDepth);
-        let (_, best_node) = extractor.find_best(sat_egraph.find(concat_node));
-        let extract_time = Instant::now() - start_time - sat_time;
-
-        (
-            extraction_unser::recexpr_traversal(best_node, &self.out_net_to_eclass),
-            FlowStats {
-                final_eclasses: sat_egraph.number_of_classes(),
-                final_enodes: sat_egraph.total_number_of_nodes(),
-                sat_time,
-                extract_time,
-            },
-        )
-    }
-
-    /*fn md_dag_flow(self, initial_egraph: EGraph<Prop, ()>) -> (String,FlowStats) {
-        let start_time = Instant::now();
-        // saturation
-        let sat_egraph= self.saturate(initial_egraph, None);
-        let sat_time = Instant::now() - start_time;
-
-        let egraph_ser = serde::serialize_in_mem(&sat_egraph, &outnode_ids);
-        //for (k,_) in std::env::vars() {
-        //    if k == "EGG_SERIALIZE" {
-        //
-        //        break;
-        //    }
-        //}
-        let mc_optimal = global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses);
-        let mut mixedcost = extraction_unser::MixedCost {
-            egraph: &sat_egraph,
-            enode_opt_lookup: mc_optimal,
-            results: HashMap::new(),
-            visited: HashMap::new()
-        };
-
-        for outnode_id in outnode_ids.iter() {
-            mixedcost.select_best_eclass_mixed(*outnode_id, 0);
-        }
-        let (_, network) = dag_md_traversal(&mixedcost, &self.outnodes, &outnode_ids);
-        let extract_time = Instant::now() - start_time - sat_time;
-
-        (network, FlowStats {
-            final_eclasses: sat_egraph.number_of_classes(),
-            final_enodes: sat_egraph.total_number_of_nodes(),
-            sat_time,
-            extract_time
-        })
-    }*/
-
-    fn md_multiple_iters(
-        mut self,
-        initial_egraph: &EGraph<Prop, ()>,
-        iters: usize,
-        alpha: f64,
-        num_candidates: usize,
-        comm_matching_override: bool,
-    ) -> (String, FlowStats, u64, usize) {
-        let mut iter_initial_egraph = initial_egraph;
-        let mut sat_time: Duration = Duration::from_secs(0);
-        let mut extract_time: Duration = Duration::from_secs(0);
-        let mut network: String = String::new();
-        let mut he_cost = 0;
-        let mut md = 0;
-        for i in 0..iters {
-            let iter_init_outnode_ids: IndexMap<String, Id> = self
-                .out_net_to_eclass
-                .iter()
-                .map(|(net, v)| (net.clone(), *v))
-                .collect();
-            //iter_initial_egraph.dot().to_svg(format!("iter{}.svg", i)).unwrap();
-            let start_time = Instant::now();
-            // saturate
-            //let sat_egraph = self.saturate(iter_initial_egraph.clone(), Some(&iter_initial_egraph), comm_matching_override);
-            let mut sat_egraph = iter_initial_egraph.clone();
-            // Remap output net IDs.
-            for (_, id) in self.out_net_to_eclass.iter_mut() {
-                *id = sat_egraph.find(*id);
-            }
-            dbg!(sat_egraph.number_of_classes());
-            dbg!(sat_egraph.total_number_of_nodes());
-            let sat_time_iter = Instant::now() - start_time;
-            sat_time += sat_time_iter;
-
-            let outnode_ids: Vec<Id> = self.out_net_to_eclass.values().map(|v| *v).collect();
-            //dbg!(outnode_ids);
-            let concat_node = sat_egraph.add(Prop::Concat(outnode_ids));
-            let extractor = Extractor::new(&sat_egraph, MultDepth);
-            let (mde, _) = extractor.find_best(sat_egraph.find(concat_node));
-            md = mde;
-            dbg!(md);
-            let mut cycle_nodes: HashSet<egraph_serialize::ClassId> = HashSet::new();
-            find_cycles(&sat_egraph, |id, _| {
-                cycle_nodes.insert(egraph_serialize::ClassId::new(id.into()));
-            });
-            dbg!(&cycle_nodes);
-
-            //dbg!("sat complete");
-
-            //sat_egraph.dot().to_dot("egraph.dot");
-            // convert to serialized graph
-            //let mut egg_file = std::fs::File::create("out.egg").unwrap();
-            //let mut egg_file: std::fs::File = tempfile::tempfile().unwrap();
-            let egraph_ser =
-                serde::serialize_in_mem(&sat_egraph, self.out_net_to_eclass.values().into_iter());
-            //serde::serialize_to_binfile(
-            //    &sat_egraph,
-            //    self.out_net_to_eclass.values().into_iter(),
-            //    &mut egg_file,
-            //    |p| match p {
-            //        Prop::And(_) => 1.0,
-            //        _ => 0.0,
-            //    },
-            //)
-            //.unwrap();
-            //dbg!(sat_egraph.total_number_of_nodes());
-            //dbg!(sat_egraph.number_of_classes());
-            // 2 egraphs in memory at same time is bad
-            std::mem::drop(sat_egraph);
-            //dbg!("drop complete");
-            //egg_file.seek(std::io::SeekFrom::Start(0)).unwrap();
-            //let egg_file = std::fs::File::open("out.egg").unwrap();
-            //let egraph_ser = egraph_serialize::EGraph::from_binary_file(&egg_file).unwrap();
-
-            // last iteration dont care about updating initial
-            if i < iters - 1 {
-                unimplemented!();
-            } else {
-                //dbg!("start final extract");
-                //let old_egraph = serde::serialize_in_mem(
-                //    &iter_initial_egraph,
-                //    iter_init_outnode_ids.values().into_iter(),
-                //);
-                (he_cost, network) = pool_extract(
-                    &egraph_ser,
-                    &self.out_net_to_eclass,
-                    &cycle_nodes,
-                    0,
-                    alpha,
-                );
-                //dbg!("finish final extract");
-            }
-            extract_time += Instant::now() - start_time - sat_time_iter;
-        }
-        (
-            network,
-            FlowStats {
-                final_eclasses: 0,
-                final_enodes: 0,
-                sat_time,
-                extract_time,
-            },
-            he_cost,
-            md
-        )
-    }
-
-    fn empty_flow(mut self, initial_egraph: EGraph<Prop, ()>) -> String {
-        let egraph_ser =
-            serde::serialize_in_mem(&initial_egraph, self.out_net_to_eclass.values().into_iter());
-        //let mut cost_analysis =
-        //global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses, HashMap::new(), );
-        //let (mut best_cost, mut best_network) =
-        //extraction_ser::dag_network_writer(&egraph_ser, &mut cost_analysis, &self.out_net_to_eclass);
-        //        best_network
-        String::new()
+        let mut cost_analysis = global_greedy_dag::mc_extract(&egraph_ser, &egraph_ser.root_eclasses, HashMap::new());
+        let extract_time = Instant::now() - start_time;
+        self.stats.set_extraction_time(extract_time);
+        extraction_ser::dag_network_writer(&egraph_ser, &mut cost_analysis, &self.out_net_to_eclass)
     }
 }
 
 //////////////////
 // Main driver //
 ////////////////
-struct FlowStats {
-    final_eclasses: usize,
-    final_enodes: usize,
-    sat_time: Duration,
-    extract_time: Duration,
-}
 
 //#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 #[derive(Subcommand, PartialEq)]
 enum FlowMode {
-    McIlp,
-    MdExplain,
-    MdDag,
-    MdMultipleIters {
+    SatMcIlp,
+    SatMcMdDag,
+    TracingHEConverge {
         #[arg(long)]
-        iters: Option<usize>,
-        #[arg(long)]
-        alpha: Option<f64>,
-        #[arg(long)]
-        num_candidates: Option<usize>,
+        ilp_iters: Option<usize>,
     },
-    MdVanillaFlow,
-    EmptyFlow,
 }
-
-//impl FromStr for FlowMode {
-//    type Err = ();
-//
-//    fn from_str(s: &str) -> Result<Self, Self::Err> {
-//        match s {
-//            "mc-ilp" => Ok(Self::McIlp),
-//            "md-explain" => Ok(Self::MdExplain),
-//            "md-dag" => Ok(Self::MdDag),
-//            "md-multiple-iters" => Ok(Self::MdMultipleIters),
-//            "md-vanilla-flow" => Ok(Self::MdVanillaFlow),
-//            _ => Err(()),
-//        }
-//    }
-//}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -925,6 +511,9 @@ struct Args {
     /// Rewriting rules (can specify multiple)
     #[arg(long)]
     rules: Vec<PathBuf>,
+    /// Trace file to construct e-graph
+    #[arg(long)]
+    trace: Option<PathBuf>,
     /// Timeout in seconds (per saturation iteration)
     #[arg(long)]
     egg_time_limit: Option<u64>,
@@ -934,6 +523,8 @@ struct Args {
     /// Max e-node count
     #[arg(long)]
     egg_node_limit: Option<usize>,
+    /// Timeout in seconds for ILP
+    ilp_time_limit: Option<f64>,
 
     #[arg(long, action=clap::ArgAction::SetTrue)]
     no_comm_matching: bool,
@@ -975,6 +566,12 @@ fn main() {
             .and_then(|x| x.parse::<usize>().ok())
             .unwrap_or(250000000)
     });
+    let ilp_time_limit = args.ilp_time_limit.unwrap_or_else(|| {
+        env_vars
+            .get("EQSATOPT_ILP_TIME_LIMIT")
+            .and_then(|x| x.parse::<f64>().ok())
+            .unwrap_or(600.)
+    });
 
     // Parse input network
     let infile = args.infile.as_path();
@@ -982,121 +579,76 @@ fn main() {
     let mut start_lines = in_network.lines();
     let innodes = start_lines.next().unwrap();
     let outnodes = start_lines.next().unwrap();
-    let (mut start_egraph, out_net_to_eclass, concat_node, ind2eclass) =
-        if infile.extension().map(|ext| ext == "seqn").unwrap_or(false) {
-            let start = start_lines.collect::<Vec<&str>>().join("\n");
-            egraph_from_seqn(
-                innodes,
-                outnodes,
-                start.as_str(),
-                args.flow == FlowMode::MdExplain || args.flow == FlowMode::MdVanillaFlow,
-            )
+    let eqns = start_lines.collect::<Vec<&str>>().join("\n");
+
+    let mut opter = if let Some(trace) = args.trace {
+        let trace = std::fs::read_to_string(trace).unwrap();
+        egraph_from_seqn_trace(innodes, outnodes, &trace)
+    } else {
+        egraph_from_seqn(innodes, outnodes, &eqns)
+    }.with_rules(rules)
+    .with_params(OptimizerParams {
+        time_limit,
+        node_limit,
+        iter_limit,
+        ilp_time_limit,
+        comm_matching: !args.no_comm_matching,
+        strict_deadlines: args.strict_deadlines,
+    });
+
+    let network = match args.flow {
+        FlowMode::SatMcIlp => {
+            opter.saturate_egg();
+            println!("classes = {}; nodes = {}", opter.stats.final_eclasses, opter.stats.final_enodes);
+            let (heur_md, heur_mc,ntk) = opter.mc_md_dag();
+            println!("heur = ({},{})", heur_md, heur_mc);
+            let ilp_result = opter.mc_ilp_extract(None);
+            if let Some((ilp_md,ilp_mc,_)) = ilp_result {
+                println!("ilp solution = ({},{})", ilp_md, ilp_mc);
+            } else {
+                println!("ilp timeout");
+            }
+            //opter.egraph.dot().to_png("egraph.png").unwrap();
+            ntk
         }
-        /* else if args.infile.ends_with(".sexpr") {
-            let mut start_lines = in_network.lines();
-            start_lines.next().unwrap();
-            start_lines.next().unwrap();
-
-            let sexpr = start.parse().unwrap();
-            let mut start_egraph = EGraph::default();
-            let concat_node = Some(start_egraph.add_expr(&sexpr));
-        }*/
-        else {
-            panic!("unrecognied file extension for input")
-        };
-
-    //let opter = EqsatOptimizer::new(rules, out_net_to_eclass).with_timeout(timeout_seconds);
-    let mut opter = EqsatOptimizer::new(
-        rules,
-        out_net_to_eclass,
-        OptimizerParams {
-            time_limit,
-            node_limit,
-            iter_limit,
-            comm_matching: !args.no_comm_matching,
-            strict_deadlines: args.strict_deadlines,
-        },
-    );
-
-    let (network, stats) = match args.flow {
-        FlowMode::McIlp => unimplemented!(),
-        FlowMode::MdExplain => opter.md_explain_flow(start_egraph, concat_node.unwrap()),
-        FlowMode::MdDag => unimplemented!(), //opter.md_dag_flow(start_egraph),
-        FlowMode::MdMultipleIters {
-            iters,
-            alpha,
-            num_candidates,
-        } => {
-            let iters = iters.unwrap_or_else(|| {
-                env_vars
-                    .get("EQSATOPT_CHECKPOINT_ITER")
-                    .and_then(|x| x.parse::<usize>().ok())
-                    .unwrap_or(10)
+        FlowMode::SatMcMdDag => {
+            unimplemented!()
+        }
+        FlowMode::TracingHEConverge { ilp_iters } => {
+            println!("classes = {}; nodes = {}", opter.stats.final_eclasses, opter.stats.final_enodes);
+            let mut cycle_cnt = 0;
+            find_cycles(&opter.egraph, |id, i| {
+                //let node = opter.egraph.find(id);
+                //let node = &opter.egraph[node];
+                cycle_cnt += 1;
+                //println!("cycle: {} {}", id, node);
             });
-            let alpha = alpha.unwrap_or_else(|| {
+            println!("# of cycles: {}", cycle_cnt);
+            let ilp_iters = ilp_iters.unwrap_or_else(|| {
                 env_vars
-                    .get("EQSATOPT_POOL_ALPHA")
-                    .and_then(|x| x.parse::<f64>().ok())
-                    .unwrap_or(1.0)
-            });
-            let num_candidates = num_candidates.unwrap_or_else(|| {
-                env_vars
-                    .get("EQSATOPT_POOL_CANDIDATES")
+                    .get("EQSATOPT_ILP_ITERS")
                     .and_then(|x| x.parse::<usize>().ok())
                     .unwrap_or(1)
             });
-            let num_pis = start_egraph.number_of_classes() - 2;
-            dbg!(num_pis);
-            let outnodes = fill_egraph_jefco(&mut start_egraph, infile, num_pis);
-            // help
-            let start_egraph_clone = start_egraph.clone();
-            start_egraph.classes_mut().for_each(|c| {
-                c.nodes.iter_mut().for_each(|n| {
-                    n.children_mut().iter_mut().for_each(|c| {
-                        *c = start_egraph_clone.find(* c); 
-                    });
-                });
-            });
-            opter
-                .out_net_to_eclass
-                .iter_mut()
-                .enumerate()
-                .for_each(|(i, (_, c))| {
-                    *c = start_egraph.find(outnodes[i]);
-                });
-            //let (network_c, stats_c, he_cost_c) =
-            //    opter.md_multiple_iters(start_egraph, iters, alpha, num_candidates, true);
-            let (mut best_network, stats, mut best_cost, md) = opter.clone().md_multiple_iters(&start_egraph, 1, alpha, num_candidates, true);
-            
-            dbg!(md);
-            dbg!(best_cost/(md*md) as u64);
-            for i in 0..iters+1 {
-                let md_i = if i == 0 { 999} else {md + i-1};
-                let Some((network, _, mc)) = opter.clone().mc_ilp_flow(&start_egraph, md_i) else { continue };
-                let he_cost_i = (md_i * md_i) as u64 * mc;
-                if he_cost_i < best_cost {
-                    best_cost = he_cost_i;
-                    best_network = network;
+            let (best_md, heur_mc, mut best_ntk) = opter.mc_md_dag();
+            let mut best_he_cost = best_md * best_md * heur_mc; 
+
+            println!("Starting ILP HE exploration with MD = {}; MC = {}", best_md, heur_mc);
+            for i in 0..ilp_iters+1 {
+                let md_b = if i == 0 { None } else { Some(best_md as usize + (i-1)) };
+                let Some((md, mc, ntk)) = opter.mc_ilp_extract(md_b) else { continue };
+                if !md_b.is_none() && Some(md as usize) > md_b {
+                    println!("WARNING: solution returned, but did not meet MD bounds - could be normal, continuing");
+                    continue;
+                }
+                let he_cost = (md * md) as u64 * mc;
+                if he_cost < best_he_cost {
+                    best_he_cost = he_cost;
+                    best_ntk = ntk;
                 }
             }
-            (best_network, stats)
-            
-            //if he_cost_c < he_cost_nc {
-            //    (network_c, stats_c)
-            //} else {
-             //   (network_nc, stats_nc)
-            //}
+            best_ntk
         }
-        FlowMode::MdVanillaFlow => opter.md_vanilla_flow(start_egraph, concat_node.unwrap()),
-        FlowMode::EmptyFlow => (
-            opter.empty_flow(start_egraph),
-            FlowStats {
-                extract_time: Duration::from_micros(0),
-                final_eclasses: 0,
-                final_enodes: 0,
-                sat_time: Duration::from_micros(0),
-            },
-        ),
     };
 
     //println!(

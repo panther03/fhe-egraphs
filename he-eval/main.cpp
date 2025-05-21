@@ -357,12 +357,14 @@ int main( const int argc, const char **argv )
     ////////////////////
     TIC(t);
     ce.evaluate(eqnlist);
-    auto seconds_total = std::chrono::duration_cast<std::chrono::seconds>(timeNow() - t).count();
+    auto ms_total = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow() - t).count();
+    auto seconds_total = ms_total / 1000;
     auto hours = seconds_total / 3600;
     auto minutes = (seconds_total % 3600) / 60;
     auto seconds = seconds_total % 60;
-    cout << args[0] << "," << seconds_total << ",";
-    cout << hours << "h " << minutes << "m " << seconds << "s " << endl;    
+    auto ms = ms_total % 1000;
+    cout << args[0] << "," << ms_total << ",";
+    cout << hours << "h " << minutes << "m " << seconds << "." << ms << "s " << endl;    
     
 
     ///////////////

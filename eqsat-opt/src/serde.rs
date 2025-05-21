@@ -1,6 +1,6 @@
 use egg::*;
 use indexmap::IndexMap;
-use std::{collections::HashMap, fmt::Display, fs::File, io::{BufWriter, Write}};
+use std::{collections::{HashMap, HashSet}, fmt::Display, fs::File, io::{BufWriter, Write}};
 use egraph_serialize::EnodeBits;
 
 use crate::common::{Prop,PropId};
@@ -104,6 +104,31 @@ pub fn deserialize_into_existing(
     //    .collect()
 }
 
+fn filter_dead<L, A>(egraph: &EGraph<L,A>, roots: &[&Id]) -> HashSet<Id>
+where
+    L: Language + Display,
+    A: Analysis<L>, {
+    let mut reachable: HashSet<Id> = roots.iter().map(|i| **i).collect();
+    let mut did_something = true;
+    while did_something {
+        did_something = false;
+        for class in egraph.classes() {
+            if !reachable.contains(&class.id) {
+                continue;
+            }
+            for node in &class.nodes {
+                for c in node.children() {
+                    if !reachable.contains(c) {
+                        reachable.insert(egraph.find(*c));
+                        did_something = true;
+                    }
+                }
+            }
+        }
+    }
+    reachable
+}
+
 pub fn serialize_in_mem<'a, L, A>(egraph: &EGraph<L, A>, root_eclasses: impl IntoIterator<Item=&'a Id>) -> egraph_serialize::EGraph
 where
     L: Language + Display,
@@ -111,8 +136,10 @@ where
 {
     use egraph_serialize::*;
     let mut out = EGraph::default();
+    let root_eclasses: Vec<&Id> = root_eclasses.into_iter().collect();
+    let reachable = filter_dead(egraph, &root_eclasses);
     for class in egraph.classes() {
-        if egraph.find(class.id) != class.id {
+        if egraph.find(class.id) != class.id || !reachable.contains(&class.id) {
             continue;
         }
         for (i, node) in class.nodes.iter().enumerate() {
@@ -126,13 +153,13 @@ where
                         .map(|id| NodeId::new(0, (egraph.find(*id)).into()))
                         .collect(),
                     eclass: ClassId::new(class.id.into()),
-                    cost: Cost::new(if node.to_string() == "*" { 1.0 } else {0.0}).unwrap(), // TODO placeholder only works on empty egraph
+                    cost: Cost::new(if node.to_string() == "*" { 1.0 } else {0.0}).unwrap(),
                     subsumed: false
                 },
             )
         }
     }
-    out.root_eclasses = root_eclasses.into_iter().map(|x| x.to_string().into()).collect();
+    out.root_eclasses = root_eclasses.iter().map(|x| x.to_string().into()).collect();
     out
 }
 

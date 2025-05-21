@@ -31,6 +31,7 @@ class Driver:
     units = []
     jobs = 1
     capture_file = None
+    trace_file_fn = None
 
     eqsatopt_params = {"mode": ("md-vanilla-flow",{})}
 
@@ -38,11 +39,14 @@ class Driver:
         self.units = units
         self.shared_rules = shared_rules
         self.capture_file = None
+        self.trace_file_fn = None
 
-    def run_wrap(self, args):
+    def run_wrap(self, args, capture_file_override=None):
         if DEBUG:
             print(args)
-        if (self.capture_file):
+        if capture_file_override:
+            return subprocess.run(args, stdout=capture_file_override, stderr=capture_file_override)
+        elif self.capture_file:
             return subprocess.run(args, stdout=self.capture_file, stderr=self.capture_file)
         else: 
             return subprocess.run(args)
@@ -113,7 +117,7 @@ class Driver:
                         print(future.exception())
     
     # parallel executor thing
-    def opt_one(self, in_file, in_rules, out_file, timeout_override=None):
+    def opt_one(self, in_file, in_rules, out_file, timeout_override=None, capture_file_override=None):
         args = [EQSAT_OPT_PATH, in_file, out_file]
         for rule in self.shared_rules:
             args.append("--rules")
@@ -124,6 +128,10 @@ class Driver:
         local_eqsatopt_params = self.eqsatopt_params.copy()
         if timeout_override:
             local_eqsatopt_params["--egg-time-limit"] = timeout_override
+
+        if self.trace_file_fn:
+            args.append("--trace")
+            args.append(self.trace_file_fn(pathlib.Path(in_file).stem))
 
         for (param,param_val) in local_eqsatopt_params.items():
             if param == "mode":
@@ -138,7 +146,7 @@ class Driver:
             args.append(f"{mode_param}")
             if mode_param_val:
                 args.append(str(mode_param_val))
-        r = self.run_wrap(args)
+        r = self.run_wrap(args, capture_file_override=capture_file_override)
 
     def opt_all(self, opt_one_override=None):
         if not self.eqsatopt_params.get("mode"):

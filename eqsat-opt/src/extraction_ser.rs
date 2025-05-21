@@ -72,7 +72,7 @@ pub fn dag_network_writer(
     egraph: &EGraph,
     cost_analysis: &mut ExtractionResult,
     out_net_to_eclass: &IndexMap<String, egg::Id>
-) -> (u64, String) {
+) -> (u64, u64, String) {
     // temporary network to hold nodes whose children have not been visited yet
     let mut network: Vec<String> = Vec::new();
     let mut network_classes: Vec<ClassId> = Vec::new();
@@ -211,9 +211,6 @@ pub fn dag_network_writer(
         }
     }
     assert!(todo_finishes.is_empty());
-    //dbg!(ckt_md);
-    //dbg!(ckt_mc);
-    let he_cost = (ckt_md * ckt_md) as u64 * ckt_mc;
 
     //println!("Critical path: {}% of ckt", (critical_path.len() as f64)/(eclass_seen.len() as f64) * 100.);
 
@@ -225,7 +222,7 @@ pub fn dag_network_writer(
 
     *cost_analysis =topo_cost_analysis;// cost_analysis.clone().into_iter().filter(|(k,_)| eclass_seen.contains(k)).collect();
     //(critical_path, 
-    (he_cost, real_network.join("\n"))
+    (ckt_md as u64, ckt_mc, real_network.join("\n"))
 }
 
 pub fn ser_egraph_from_file(infile: &str) -> (EGraph,Vec<ClassId>) {

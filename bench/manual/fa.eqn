@@ -1,0 +1,8 @@
+INORDER = a b cin;
+OUTORDER = sum cout;
+n1 = a * b;
+n2 = a ^ b;
+n3 = n1 ^ n2;
+n4 = n2 * !cin;
+sum = n2 ^ cin;
+cout = n3 ^ n4;

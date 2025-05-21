@@ -222,34 +222,42 @@ where
     (critical_path, real_network.join("\n"))
 }
 
-pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<String, Id>) -> String {
+pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<String, Id>) -> (u64, String) {
     let mut network: Vec<String> = Vec::new();
-
+    let mut lvls: HashMap<Id,i32> = HashMap::new();
+    let mut ckt_md: u64 = 0;
     for (id, p) in expr.as_ref().iter().enumerate() {
         let mut netd = format!("n{id} = ");
         let mut ok = true;
         match p {
             Prop::And([a, b]) => {
+                lvls.insert(Id::from(id), lvls[a].max(lvls[b]) + 1);
                 netd.push_str(format!("n{} * n{};", a, b).as_str());
             }
             Prop::Or([a, b]) => {
+                lvls.insert(Id::from(id), lvls[a].max(lvls[b]) + 1);
                 netd.push_str(format!("n{} + n{};", a, b).as_str());
             }
             Prop::Xor([a, b]) => {
+                lvls.insert(Id::from(id), lvls[a].max(lvls[b]));
                 netd.push_str(format!("(!n{} * n{}) + (n{} * !n{});", a, b, a, b).as_str());
             }
             Prop::Not(a) => {
+                lvls.insert(Id::from(id), lvls[a]);
                 netd.push_str(format!("!n{};", a).as_str());
             }
             Prop::Symbol(s) => {
+                lvls.insert(Id::from(id), 0);
                 netd.push_str(s.as_str());
                 netd.push(';');
             }
             Prop::Bool(b) => {
+                lvls.insert(Id::from(id), 0);
                 netd.push_str(if *b { "1;" } else { "0;" });
             }
             Prop::Concat(outs ) => {
                 for ((o_name, _), o_id) in out_net_to_eclass.iter().zip(outs.iter()) {
+                    ckt_md = ckt_md.max(lvls[o_id] as u64);
                     network.push(format!("{} = n{};", o_name, o_id));            
                 }
                 ok = false;
@@ -259,7 +267,7 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<Strin
         if ok {network.push(netd);}
     }
 
-    network.join("\n")
+    (ckt_md,network.join("\n"))
 }
 
 #[allow(unused)]
