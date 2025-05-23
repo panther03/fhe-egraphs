@@ -246,6 +246,10 @@ pub fn recexpr_traversal(expr: RecExpr<Prop>, out_net_to_eclass: &IndexMap<Strin
                 lvls.insert(Id::from(id), lvls[a]);
                 netd.push_str(format!("!n{};", a).as_str());
             }
+            Prop::Connect(a) => {
+                lvls.insert(Id::from(id), lvls[a]);
+                netd.push_str(format!("n{};", a).as_str());
+            }
             Prop::Symbol(s) => {
                 lvls.insert(Id::from(id), 0);
                 netd.push_str(s.as_str());

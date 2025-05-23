@@ -1,0 +1,23 @@
+# Equations for "hd07.eqn_temp" written by ABC on Fri May 23 09:29:41 2025
+INORDER = pi0 pi1 pi2 pi3 pi4 pi5 pi6 pi7;
+OUTORDER = po0 po1 po2 po3 po4 po5 po6 po7;
+n18 = pi0 * !pi1;
+po2 = pi2 * n18;
+n20 = pi1 * !pi2;
+n21 = !n18 * !n20;
+po3 = pi3 * !n21;
+n23 = pi3 * pi4;
+n24 = !pi2 * !pi3;
+n25 = !n23 * !n24;
+n26 = n21 * !n25;
+po4 = pi4 * !n26;
+po5 = pi5 * !n26;
+n29 = pi5 * pi6;
+n30 = !pi4 * !pi5;
+n31 = !n29 * !n30;
+n32 = n26 * !n31;
+po6 = pi6 * !n32;
+po7 = pi7 * !n32;
+po0 = 0;
+po1 = 0;
+

@@ -146,6 +146,10 @@ pub fn dag_network_writer(
                     let a = enode.children[0].class();
                     netd.push_str(format!("!n{};", a).as_str());
                 }
+                PropId::Ct => {
+                    let a = enode.children[0].class();
+                    netd.push_str(format!("n{};", a).as_str());
+                }
                 PropId::Sym => {
                     children = None;
                     netd.push_str(&enode.op);

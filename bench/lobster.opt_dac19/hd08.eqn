@@ -1,0 +1,25 @@
+# Equations for "hd08.eqn_temp" written by ABC on Fri May 23 09:29:41 2025
+INORDER = pi0 pi1 pi2 pi3 pi4 pi5 pi6 pi7;
+OUTORDER = po0;
+n10 = !pi4 * !pi5;
+n11 = !pi0 * !pi1;
+n12 = !pi2 * !pi3;
+n13 = n11 * n12;
+n14 = n10 * n13;
+n15 = !pi6 * !pi7;
+n16 = !n14 * !n15;
+n17 = n14 * n15;
+n18 = !n16 * !n17;
+n19 = !n10 * !n13;
+n20 = !n11 * !n12;
+n21 = pi4 * pi5;
+n22 = pi2 * pi3;
+n23 = !n21 * !n22;
+n24 = pi0 * pi1;
+n25 = pi6 * pi7;
+n26 = !n24 * !n25;
+n27 = !n20 * n23;
+n28 = !n19 * n26;
+n29 = n27 * n28;
+po0 = n18 * n29;
+

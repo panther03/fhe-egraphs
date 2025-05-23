@@ -20,8 +20,8 @@ if shutil.which(ESOP_PAPER_PATH) is None:
     print("esop_paper is not in PATH!")
     exit(1)
 
-def collect_traces(log_f, base, jobs):
-    d = Driver.from_benchset_ruleset("all", "lobster", None, f"{base}/eqsat_tracing")
+def collect_traces(log_f, base, benchset, jobs):
+    d = Driver.from_benchset_ruleset("all", benchset, None, f"{base}/eqsat_tracing")
     d.jobs = jobs
     d.capture_file = log_f
 
@@ -52,11 +52,11 @@ def eval_dir(log_f, dir, jobs):
     d.jobs = jobs
     d.eval_all()
 
-def opt(log_f, rules, base, jobs, trace_file_fn = None, opt_fn = None):
+def opt(log_f, rules, base, benchset, jobs, trace_file_fn = None, opt_fn = None):
     rules_name = rules
     if rules is None:
         rules_name = "tracing"
-    d = Driver.from_benchset_ruleset("all", "lobster", rules, f"{base}/eqsat_{rules_name}")
+    d = Driver.from_benchset_ruleset("all", benchset, rules, f"{base}/eqsat_{rules_name}")
     d.with_bool_rules()
     d.eqsatopt_params = global_params
     d.capture_file = log_f
@@ -84,21 +84,20 @@ if __name__ == "__main__":
     mode = sys.argv[1]
     
     f = open(out_base + f"/{mode}.log", 'w')
-    if mode == "lobster_eval":
-        jobs = 1 if jobs_override == 0 else jobs_override
-        eval_dir(f, f"{DRIVER_DIR}/bench/lobster.opt_lobster", jobs)
-    elif mode == "eqsat_lobster_trace":
-        jobs = 4 if jobs_override == 0 else jobs_override
-        collect_traces(f, out_base, jobs)
+    if mode == "eqsat_lobster_trace":
+        jobs = 8 if jobs_override == 0 else jobs_override
+        collect_traces(f, out_base, "lobster", jobs)
+    elif mode == "eqsat_lobster_dac19_trace":
+        jobs = 8 if jobs_override == 0 else jobs_override
+        collect_traces(f, out_base, "lobster.opt_dac19", jobs)
     elif mode == "eqsat_lobster_opt":
         jobs = 4 if jobs_override == 0 else jobs_override
         trace_file_fn = lambda bench: f"{out_base}/eqsat_tracing/trace/{bench}.trace"
-        opt(f, None, out_base, jobs, trace_file_fn, opt_one_traces_gen(f"{out_base}/eqsat_tracing/"))
-    elif mode == "eqsat_lobster_eqsat":
+        opt(f, None, out_base, "lobster", jobs, trace_file_fn, opt_one_traces_gen(f"{out_base}/eqsat_tracing/"))
+    elif mode == "eqsat_lobster_dac19_opt":
         jobs = 4 if jobs_override == 0 else jobs_override
-        global_params["mode"] = ("sat-mc-ilp",{})
-        global_params["--egg-time-limit"] = "60"
-        opt(f, None, out_base, jobs)
+        trace_file_fn = lambda bench: f"{out_base}/eqsat_tracing/trace/{bench}.trace"
+        opt(f, None, out_base, "lobster.opt_dac19", jobs, trace_file_fn, opt_one_traces_gen(f"{out_base}/eqsat_tracing/"))
     elif mode == "eqsat_lobster_eval_base":
         jobs = 1 if jobs_override == 0 else jobs_override
         eval_dir(f, f"{out_base}/eqsat_tracing/baseline/", jobs)

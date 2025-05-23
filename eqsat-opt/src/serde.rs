@@ -13,7 +13,7 @@ pub fn decode_op_string(op: &str) -> PropId {
         '^' => PropId::Xor,
         't' => PropId::Lit,
         'f' => PropId::Lit,
-        _   => PropId::Sym,
+        _   => if op == "->" { PropId::Ct } else { PropId::Sym },
     }
 }
 
@@ -32,6 +32,10 @@ pub fn decode_enode(new_to_old: &HashMap<Id, Id>, enode: &egraph_serialize::Node
         PropId::Not => {
             let a = Id::from(enode.children[0].class() as usize);
             Some(Prop::Not(*new_to_old.get(&a)?))
+        }
+        PropId::Ct => {
+            let a = Id::from(enode.children[0].class() as usize);
+            Some(Prop::Connect(*new_to_old.get(&a)?))
         }
         PropId::Lit => {
             Some(Prop::Bool(enode.op.as_str() == "true"))

@@ -1,0 +1,72 @@
+# Equations for "hd10.eqn_temp" written by ABC on Fri May 23 09:29:43 2025
+INORDER = pi00 pi01 pi02 pi03 pi04 pi05 pi06 pi07 pi08 pi09 pi10 pi11 pi12 
+ pi13 pi14 pi15 pi16 pi17 pi18 pi19 pi20 pi21 pi22 pi23 pi24 pi25 pi26 pi27 
+ pi28 pi29 pi30 pi31;
+OUTORDER = po00 po01 po02 po03 po04 po05 po06 po07 po08 po09 po10 po11 po12 
+ po13 po14 po15 po16 po17 po18 po19 po20 po21 po22 po23 po24 po25 po26 po27 
+ po28 po29 po30 po31;
+n66 = !pi04 * !pi05;
+n67 = !pi06 * !pi07;
+n68 = n66 * n67;
+n69 = !pi00 * !pi01;
+n70 = !pi02 * !pi03;
+n71 = n69 * n70;
+n72 = n68 * n71;
+n73 = !pi12 * !pi13;
+n74 = !pi14 * !pi15;
+n75 = n73 * n74;
+n76 = !pi08 * !pi09;
+n77 = !pi10 * !pi11;
+n78 = n76 * n77;
+n79 = n75 * n78;
+n80 = !n72 * !n79;
+n81 = !pi20 * !pi21;
+n82 = !pi22 * !pi23;
+n83 = n81 * n82;
+n84 = !pi16 * !pi17;
+n85 = !pi18 * !pi19;
+n86 = n84 * n85;
+n87 = n83 * n86;
+n88 = !pi28 * !pi29;
+n89 = !pi30 * !pi31;
+n90 = n88 * n89;
+n91 = !pi24 * !pi25;
+n92 = !pi26 * !pi27;
+n93 = n91 * n92;
+n94 = n90 * n93;
+n95 = !n87 * !n94;
+po29 = n80 * n95;
+po30 = n80 * !n95;
+n98 = !n87 * n94;
+n99 = !n79 * !n98;
+po31 = !n72 * !n99;
+po00 = 0;
+po01 = 0;
+po02 = 0;
+po03 = 0;
+po04 = 0;
+po05 = 0;
+po06 = 0;
+po07 = 0;
+po08 = 0;
+po09 = 0;
+po10 = 0;
+po11 = 0;
+po12 = 0;
+po13 = 0;
+po14 = 0;
+po15 = 0;
+po16 = 0;
+po17 = 0;
+po18 = 0;
+po19 = 0;
+po20 = 0;
+po21 = 0;
+po22 = 0;
+po23 = 0;
+po24 = 0;
+po25 = 0;
+po26 = 0;
+po27 = 0;
+po28 = 0;
+

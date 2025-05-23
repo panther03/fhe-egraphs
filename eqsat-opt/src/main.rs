@@ -113,42 +113,33 @@ fn egraph_from_seqn_trace(
         let mut insn = insn_s.split(" ");
         let op = insn.next().unwrap();
         match op {
-            "L" => {
-                let old: usize = insn.next().unwrap().parse().unwrap();
-                let compl: u32 = insn.next().unwrap().parse().unwrap();
-                let new: usize = insn.next().unwrap().parse().unwrap();
-                let new_n = if compl == 1 {
-                    egraph.add(Prop::Not(prev_index_map[&old]))
-                } else {
-                    prev_index_map[&old]
-                };
-                index_map.insert(new, new_n);
-            }
             "X" | "A" => {
                 let n: usize = insn.next().unwrap().parse().unwrap();
-                // don't re-add nodes and overwrite the id, because they might be aliased and structurally not equivalent
-                if !index_map.contains_key(&n) {
-                    let ac: u32 = insn.next().unwrap().parse().unwrap();
-                    let a: usize = insn.next().unwrap().parse().unwrap();
-                    let bc: u32 = insn.next().unwrap().parse().unwrap();
-                    let b: usize = insn.next().unwrap().parse().unwrap();
-                    let a = if ac == 1 {
-                        egraph.add(Prop::Not(index_map[&a]))
-                    } else {
-                        index_map[&a]
-                    };
-                    let b = if bc == 1 {
-                        egraph.add(Prop::Not(index_map[&b]))
-                    } else {
-                        index_map[&b]
-                    };
-                    let nid = if op == "X" {
-                        egraph.add(Prop::Xor([a, b]))
-                    } else {
-                        egraph.add(Prop::And([a, b]))
-                    };
-                    index_map.insert(n, nid);
-                }
+                // canonical nodes should never be reused
+                assert!(!index_map.contains_key(&n));
+                let ac: u32 = insn.next().unwrap().parse().unwrap();
+                let a: usize = insn.next().unwrap().parse().unwrap();
+                let bc: u32 = insn.next().unwrap().parse().unwrap();
+                let b: usize = insn.next().unwrap().parse().unwrap();
+                let a = if ac == 1 {
+                    egraph.add(Prop::Not(index_map[&a]))
+                } else {
+                    if !index_map.contains_key(&a) {
+                        dbg!(&a);
+                    }
+                    index_map[&a]
+                };
+                let b = if bc == 1 {
+                    egraph.add(Prop::Not(index_map[&b]))
+                } else {
+                    index_map[&b]
+                };
+                let nid = if op == "X" {
+                    egraph.add(Prop::Xor([a, b]))
+                } else {
+                    egraph.add(Prop::And([a, b]))
+                };
+                index_map.insert(n, nid);
             }
             "O" => {
                 let ind: usize = insn.next().unwrap().parse().unwrap();
@@ -163,6 +154,7 @@ fn egraph_from_seqn_trace(
                     assert!(ind == pos.len());
                     pos.push(po_n);
                 } else {
+                    //let po_n_c = egraph.add(Prop::Connect(po_n));
                     egraph.union(pos[ind], po_n);
                     pos[ind] = po_n;
                 }
@@ -172,21 +164,16 @@ fn egraph_from_seqn_trace(
                 let compl: u32 = insn.next().unwrap().parse().unwrap();
                 let new_n: usize = insn.next().unwrap().parse().unwrap();
                 let c = index_map[&c];
-                let new_n = if compl == 1 {
+                let new_n_id = if compl == 1 {
+                    assert!(index_map[&new_n] != c);
                     egraph.add(Prop::Not(index_map[&new_n]))
                 } else {
                     index_map[&new_n]
                 };
-                egraph.union(c, new_n);
-            }
-            "CLEAR" => {
-                if index_map.len() != (num_pis + 1) {
-                    prev_index_map = index_map.clone();
-                }
-                index_map.clear();
-                index_map.insert(0, Id::from(1 as usize));
-                for i in 0..num_pis {
-                    index_map.insert(i + 1, Id::from(2 + i as usize));
+                if new_n_id != c {
+                    //let c_new_n = egraph.add(Prop::Connect(new_n_id));
+                    egraph.union(c, new_n_id);
+                    //index_map.insert(new_n, c);
                 }
             }
             _ => {
@@ -608,7 +595,6 @@ fn main() {
             } else {
                 println!("ilp timeout");
             }
-            //opter.egraph.dot().to_png("egraph.png").unwrap();
             ntk
         }
         FlowMode::SatMcMdDag => {
@@ -623,6 +609,7 @@ fn main() {
                 cycle_cnt += 1;
                 //println!("cycle: {} {}", id, node);
             });
+            //opter.egraph.dot().to_dot("egraph.dot").unwrap();
             println!("# of cycles: {}", cycle_cnt);
             let ilp_iters = ilp_iters.unwrap_or_else(|| {
                 env_vars

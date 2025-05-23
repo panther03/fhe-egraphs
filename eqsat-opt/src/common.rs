@@ -15,6 +15,7 @@ define_language! {
         // used for having multiple outputs
         "$" = Concat(Vec<Id>),
         "&" = Concat2([Id; 2]),
+        "->" = Connect(Id),
         Symbol(Symbol),
     }
 }
@@ -24,7 +25,8 @@ pub enum PropId {
     Not,
     Xor,
     Lit,
-    Sym
+    Sym,
+    Ct
 }
 
 #[derive(Clone,Debug)]
