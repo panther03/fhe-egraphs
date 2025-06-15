@@ -103,7 +103,7 @@ if __name__ == "__main__":
         eval_dir(f, f"{out_base}/eqsat_tracing/baseline/", jobs)
     elif mode == "eqsat_lobster_eval_opt":
         jobs = 1 if jobs_override == 0 else jobs_override
-        eval_dir(f, f"{out_base}/eqsat_tracing/opt/", jobs)
+        eval_dir(f, f"{out_base}/eqsat_lobster/opt/", jobs)
     else:
         print(f"unrecognized mode {mode}")
         exit(1)
